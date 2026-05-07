@@ -1,0 +1,408 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "HubCore Chat",
+
+  "cancel": "Отмена",
+  "save": "Сохранить",
+  "delete": "Удалить",
+  "close": "Закрыть",
+  "copied": "Скопировано",
+  "dismiss": "Закрыть",
+  "continueAction": "Продолжить",
+
+  "fingerprint": "Отпечаток",
+  "publicKeyBase58": "Открытый ключ (base58)",
+  "yesterday": "Вчера",
+  "today": "Сегодня",
+  "selectFromGallery": "Выбрать из галереи",
+  "takePhoto": "Сделать фото",
+  "deletePhoto": "Удалить фото",
+  "myQrCode": "Мой QR-код",
+  "networkStatus": "Состояние сети",
+  "yggdrasilReticulum": "Yggdrasil, Reticulum",
+
+  "mediaAudio": "🎤 Голосовое",
+  "mediaVideoCircle": "⭕ Видео-кружок",
+  "mediaPhoto": "🖼 Фото",
+  "selectFileType": "Выбор типа файла",
+  "photoVideo": "Фото / Видео",
+  "document": "Документ",
+
+  "deliveryStatus": "Статус доставки",
+  "deliveryStatusSent": "Отправлено",
+  "deliveryStatusDelivered": "Доставлено",
+  "deliveryStatusRead": "Прочитано",
+  "noDeliveryInfo": "Нет информации о доставке",
+  "noMessages": "Нет сообщений",
+
+  "onboardingSubtitle": "Приватный мессенджер. Без номера телефона. Без серверов.",
+  "featureE2eTitle": "Сквозное шифрование",
+  "featureE2eSubtitle": "Сообщения шифруются с помощью Double Ratchet",
+  "featureP2pTitle": "Peer-to-peer сеть",
+  "featureP2pSubtitle": "Построена на Yggdrasil — без центрального сервера",
+  "featureNoRegTitle": "Без регистрации",
+  "featureNoRegSubtitle": "Ваша личность — пара криптографических ключей",
+  "createIdentity": "Создать личность",
+  "keyLocalWarning": "Ваши ключи генерируются локально и никогда не покидают устройство.",
+
+  "setPinTitle": "Установить PIN",
+  "confirmPinTitle": "Подтвердить PIN",
+  "enterPinTitle": "Введите PIN",
+  "setPinSubtitle": "Создайте PIN для защиты ваших сообщений",
+  "confirmPinSubtitle": "Введите PIN ещё раз для подтверждения",
+  "unlockSubtitle": "Разблокировать HubCore Chat",
+  "pinsDoNotMatch": "PIN-коды не совпадают",
+  "wrongPin": "Неверный PIN",
+  "wrongPinAttemptsLeft": "{remaining, plural, one{Неверный PIN — осталась {remaining} попытка} few{Неверный PIN — осталось {remaining} попытки} other{Неверный PIN — осталось {remaining} попыток}}",
+  "@wrongPinAttemptsLeft": {
+    "placeholders": {
+      "remaining": {"type": "int"}
+    }
+  },
+  "failedAttemptsCount": "{count, plural, one{{count} неудачная попытка} few{{count} неудачных попытки} other{{count} неудачных попыток}}",
+  "@failedAttemptsCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "keyMismatchTitle": "Ключ не совпадает",
+  "keyMismatchContent": "База данных зашифрована другим ключом. Это происходит после переустановки или восстановления устройства.\n\nУдалить данные и начать заново?",
+  "resetButton": "Сбросить",
+
+  "profileSetupTitle": "Как вас зовут?",
+  "profileSetupSubtitle": "Ник и аватарка будут видны вашим контактам. Можно пропустить.",
+  "nicknameHint": "Ваш ник (необязательно)",
+
+  "tabChats": "Чаты",
+  "tabContacts": "Контакты",
+  "tabProfile": "Профиль",
+  "tabSettings": "Настройки",
+  "pressAgainToExit": "Нажмите ещё раз для выхода",
+
+  "searchChats": "Поиск чатов…",
+  "searchMessages": "Поиск сообщений",
+  "newGroup": "Новая группа",
+  "noChatMatchingQuery": "Нет чатов, совпадающих с \"{query}\"",
+  "@noChatMatchingQuery": {
+    "placeholders": {
+      "query": {"type": "String"}
+    }
+  },
+  "emptyChatsTitle": "Нет чатов",
+  "emptyChatsSubtitle": "Добавьте контакт через QR-код\nили поделитесь своим кодом",
+  "addContactButton": "Добавить контакт",
+  "deleteChatTitle": "Удалить чат?",
+  "deleteChatContent": "Все сообщения с \"{name}\" будут удалены.",
+  "@deleteChatContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "noContactsYet": "Нет контактов",
+  "tapPlusToAdd": "Нажмите + для добавления",
+
+  "myProfile": "Мой профиль",
+  "shareQrToAddContacts": "Поделитесь QR-кодом для добавления контактов",
+  "yourNickname": "Ваш ник",
+
+  "searchMessagesTitle": "Поиск сообщений…",
+  "nothingFound": "Ничего не найдено",
+  "youPrefix": "Вы: ",
+
+  "addContactTitle": "Добавить контакт",
+  "shareYourKey": "Поделитесь своим ключом",
+  "contactKeyLabel": "Ключ контакта",
+  "fromFile": "Из файла",
+  "pasteKeyHint": "base58 ключ или JSON контакта",
+  "pasteFromClipboard": "Вставить из буфера",
+  "contactNameHint": "Имя контакта (необязательно)",
+  "qrCodeNotFound": "QR-код не найден в изображении",
+  "invalidPublicKey": "Неверный открытый ключ",
+
+  "sendMessage": "Написать сообщение",
+  "clearChatHistory": "Очистить историю",
+  "clearChatTitle": "Очистить историю чата?",
+  "clearChatContent": "Все сообщения и файлы с {name} будут удалены. Ключи и сессии не затронуты.",
+  "@clearChatContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "chatHistoryCleared": "История чата очищена",
+  "deleteContactTitle": "Удалить контакт?",
+  "deleteContactContent": "Удалить {name} из контактов? Сообщения удалены не будут.",
+  "@deleteContactContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "messageHint": "Сообщение",
+  "chatInitializing": "Приложение ещё инициализируется. Подождите секунду.",
+  "contactNotFoundError": "Контакт не найден. Попробуйте снова обменяться QR-кодами.",
+  "noSessionError": "Нет установленной сессии. Дождитесь, пока контакт появится онлайн.",
+  "databaseError": "База данных недоступна. Перезапустите приложение.",
+  "networkErrorQueued": "Ошибка сети. Сообщение встанет в очередь и отправится автоматически.",
+  "sendError": "Не удалось отправить. Попробуйте ещё раз.",
+  "reply": "Ответить",
+  "forward": "Переслать",
+  "forwardTo": "Переслать в…",
+  "messageForwarded": "Сообщение переслано",
+  "muteNotifications": "Заглушить",
+  "unmuteNotifications": "Включить уведомления",
+  "autoDeleteOff": "Авто-удаление отключено",
+  "autoDeleteLabel": "Авто-удаление: {duration}",
+  "@autoDeleteLabel": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
+  "autoDelete1Min": "1 минута",
+  "autoDelete1Hour": "1 час",
+  "autoDelete1Day": "1 день",
+  "autoDelete1Week": "1 неделя",
+  "autoDeleteDisabled": "Отключено",
+  "deleteLocally": "Удалить у себя",
+  "deleteForAll": "Удалить у всех",
+  "deleteCancelSend": "Удалить (отменить отправку)",
+  "copyText": "Скопировать",
+  "sendAttempt": "Попытка {current}/{max}",
+  "@sendAttempt": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "max": {"type": "int"}
+    }
+  },
+  "lastSeenRecently": "в сети недавно",
+  "lastSeenMinutesAgo": "был(а) {m} мин назад",
+  "@lastSeenMinutesAgo": {
+    "placeholders": {
+      "m": {"type": "int"}
+    }
+  },
+  "lastSeenHoursAgo": "был(а) {h} ч назад",
+  "@lastSeenHoursAgo": {
+    "placeholders": {
+      "h": {"type": "int"}
+    }
+  },
+  "lastSeenYesterday": "был(а) вчера",
+  "lastSeenDaysAgo": "был(а) {d} дн назад",
+  "@lastSeenDaysAgo": {
+    "placeholders": {
+      "d": {"type": "int"}
+    }
+  },
+  "fileTooLarge": "Файл слишком большой (макс. {mb} МБ)",
+  "@fileTooLarge": {
+    "placeholders": {
+      "mb": {"type": "int"}
+    }
+  },
+  "groupLabel": "Группа",
+  "noMessagesHint": "Нет сообщений\nПотяните для обновления",
+
+  "monthJan": "Январь",
+  "monthFeb": "Февраль",
+  "monthMar": "Март",
+  "monthApr": "Апрель",
+  "monthMay": "Май",
+  "monthJun": "Июнь",
+  "monthJul": "Июль",
+  "monthAug": "Август",
+  "monthSep": "Сентябрь",
+  "monthOct": "Октябрь",
+  "monthNov": "Ноябрь",
+  "monthDec": "Декабрь",
+
+  "newGroupTitle": "Новая группа",
+  "groupNameHint": "Название группы",
+  "selectMembersLabel": "Выберите участников",
+  "noContactsToAdd": "Нет контактов для добавления",
+  "enterGroupName": "Введите название группы",
+  "selectAtLeastOneMember": "Выберите хотя бы одного участника",
+  "messagingNotReady": "Обмен сообщениями не готов",
+  "createGroupButton": "{count, plural, one{Создать (1 участник)} few{Создать ({count} участника)} other{Создать ({count} участников)}}",
+  "@createGroupButton": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+
+  "membersCount": "{count, plural, one{1 участник} few{{count} участника} other{{count} участников}}",
+  "@membersCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "notGroupMember": "Вы больше не являетесь участником этой группы",
+  "leaveGroup": "Покинуть группу",
+  "leaveGroupTitle": "Покинуть группу?",
+  "leaveGroupContent": "Вы больше не будете получать сообщения из этой группы.",
+  "groupManagement": "Управление группой",
+  "youInGroup": "вы",
+  "noData": "Нет данных",
+
+  "renameGroup": "Переименовать группу",
+  "addMember": "Добавить участника",
+  "noAvailableContacts": "Нет доступных контактов для добавления",
+  "invitationSent": "Приглашение отправлено",
+  "removeMemberTitle": "Удалить участника?",
+  "removeMemberContent": "{name} будет удалён из группы.",
+  "@removeMemberContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "deleteGroupTitle": "Удалить группу?",
+  "deleteGroupContent": "Группа будет удалена для всех участников. Это действие нельзя отменить.",
+  "groupRenamed": "Группа переименована",
+  "memberRemovedMessage": "{name} удалён из группы",
+  "@memberRemovedMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "unnamedGroup": "Без названия",
+  "tapToRename": "Нажмите чтобы переименовать",
+  "adminLabel": "Админ: {name}",
+  "@adminLabel": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "settingsTitle": "Настройки",
+  "sectionIdentity": "Идентичность",
+  "rotateSigningKey": "Ротация ключа подписи",
+  "rotateSigningKeyDesc": "Выдать новый ключ подписи, сертифицированный мастер-ключом",
+  "fingerprintCopied": "Отпечаток скопирован",
+  "publicKeyCopied": "Открытый ключ скопирован",
+  "signingKeyRotated": "Ключ подписи обновлён",
+  "sectionNetwork": "Сеть",
+  "sectionBackup": "Резервная копия",
+  "exportBackup": "Экспорт резервной копии",
+  "exportBackupDesc": "Сохранить зашифрованный файл резервной копии",
+  "importBackup": "Импорт резервной копии",
+  "importBackupDesc": "Восстановить идентичность из файла резервной копии",
+  "sectionSecurity": "Безопасность",
+  "softwareKeystore": "Программный Keystore",
+  "softwareKeystoreDesc": "Android 8 не гарантирует аппаратную защиту ключей. Рекомендуется Android 9+.",
+  "duressPin": "PIN паники",
+  "duressPinDesc": "Тихий сброс — при вводе стирает все данные",
+  "wipeAllData": "Стереть все данные",
+  "wipeAllDataDesc": "Необратимо удалить все ключи и сообщения",
+  "backupPassword": "Пароль резервной копии",
+  "importBackupDialogTitle": "Импортировать резервную копию?",
+  "importBackupDialogContent": "Это заменит вашу текущую идентичность. Сообщения и контакты НЕ восстанавливаются.",
+  "enterPassword": "Введите пароль",
+  "identityNotLoaded": "Идентичность не загружена",
+  "sodiumNotReady": "Sodium не готов",
+  "backupSavedTo": "Резервная копия сохранена: {path}",
+  "@backupSavedTo": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "exportFailed": "Ошибка экспорта: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "importFailed": "Ошибка импорта: {error}",
+  "@importFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "identityRestored": "Идентичность восстановлена. Перезапустите приложение.",
+  "appNotUnlocked": "Приложение не разблокировано",
+  "duressPinSet": "PIN паники установлен",
+  "duressPinRemoved": "PIN паники удалён",
+  "wrongCurrentPin": "Неверный текущий PIN",
+  "enterCurrentPin": "Введите текущий PIN",
+  "setDuressPin": "Установить PIN паники",
+  "confirmDuressPin": "Подтвердить PIN паники",
+  "pinConfirmIdentity": "Подтвердите личность перед изменением настроек безопасности",
+  "duressPinSetHelp": "При вводе этого PIN все данные стираются без предупреждения",
+  "duressPinConfirmHelp": "Введите PIN паники ещё раз для подтверждения",
+  "duressMustDiffer": "PIN паники должен отличаться от основного PIN",
+  "removeDuressPin": "Удалить PIN паники",
+  "wipeAllDataTitle": "Стереть все данные?",
+  "wipeAllDataContent": "Это навсегда удалит ваш ключ идентичности, все сообщения и контакты. Отменить нельзя.",
+  "wipeButton": "Стереть",
+  "retryInterval": "Интервал повтора",
+  "maxAttempts": "Макс. попыток отправки",
+
+  "networkSettingsTitle": "Настройки сети",
+  "peersList": "Список пиров",
+  "trustedPeersOnly": "Только доверенные пиры",
+  "trustedPeersOnlyDesc": "Только ключи контактов Yggdrasil могут подключаться",
+  "allInboundAllowed": "Все входящие разрешены (по умолчанию)",
+  "trustedPeersModeOn": "Режим доверенных пиров включён. Добавьте контакты для заполнения белого списка.",
+  "lanDiscoveryPassword": "Пароль LAN Discovery",
+  "openDiscovery": "Открытый — любое устройство в LAN",
+  "protectedDiscovery": "Защищённый — только устройства с паролем",
+  "wifiLanDiscovery": "WiFi LAN Discovery",
+  "autoInterface": "AutoInterface (mDNS)",
+  "autoInterfaceDesc": "Обнаружение устройств в локальной сети",
+  "tcpTransportNodes": "TCP Transport Nodes",
+  "tcpTransportDesc": "Подключение к RNS transport nodes через интернет. Нужен хотя бы один для мобильной сети.",
+  "builtIn": "Встроенный",
+  "addTransportNode": "Добавить transport node",
+  "rnsTransportNode": "RNS Transport Node",
+  "addNodeHint": "host:port (например 1.2.3.4:4242)",
+  "reticulumViaYgg": "Reticulum через Yggdrasil",
+  "addYggRnsNode": "Добавить Yggdrasil RNS ноду",
+  "restartReticulum": "Перезапустить Reticulum",
+  "addPeer": "Добавить пир",
+  "addYggPeer": "Добавить Yggdrasil пир",
+  "peerPriority": "Приоритет пира (1–255)",
+  "priority": "Приоритет",
+  "lanDiscoveryPasswordTitle": "Пароль LAN Discovery",
+  "openDiscoveryHint": "Пусто — открытое обнаружение",
+  "ddns": "DDNS",
+  "ddnsProvider": "Провайдер",
+  "ddnsDomain": "Домен",
+  "ddnsToken": "Токен / API ключ",
+  "peerAddress": "Адрес пира",
+  "peerModeHelp": "⚠ Для работы пира нужен белый IP или проброс порта на роутере.",
+  "publicPeerMode": "Режим публичного пира",
+  "publicPeerModeDesc": "Телефон принимает входящие Yggdrasil соединения",
+  "wifiOnly": "Только на WiFi",
+  "disableOnMobile": "Отключить пир-режим в мобильной сети",
+  "port": "Порт",
+  "notSet": "Не указан",
+  "addressCopied": "Адрес скопирован",
+  "notImplementedYet": "{name} — пока не реализован",
+  "@notImplementedYet": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "networkStatusTitle": "Состояние сети",
+  "yggdrasilNode": "Yggdrasil Node",
+  "myAddress": "Мой адрес",
+  "nodePublicKey": "Открытый ключ узла",
+  "listeningInbound": "Прослушивание (входящие пиры)",
+  "peersConnectedCount": "Пиры ({up}/{total} активны)",
+  "@peersConnectedCount": {
+    "placeholders": {
+      "up": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "noPeersConnected": "Нет подключённых пиров",
+  "activeSessionsCount": "Активные сессии ({count})",
+  "@activeSessionsCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "inbound": "входящий",
+  "outbound": "исходящий"
+}

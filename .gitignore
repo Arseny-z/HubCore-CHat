@@ -1,0 +1,33 @@
+# Flutter
+client/.dart_tool/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+client/.packages
+client/build/
+client/pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+.claude/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/*.log
+
+# Local DB
+client/lib/storage/database.db
+
+# Secrets
+*.pem
+*.key
+*.crt
+# Yggdrasil
+client/android/libs/
+yggdrasil-go-develop/
+.env

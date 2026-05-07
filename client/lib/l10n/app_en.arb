@@ -1,0 +1,408 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "HubCore Chat",
+
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "close": "Close",
+  "copied": "Copied",
+  "dismiss": "Dismiss",
+  "continueAction": "Continue",
+
+  "fingerprint": "Fingerprint",
+  "publicKeyBase58": "Public Key (base58)",
+  "yesterday": "Yesterday",
+  "today": "Today",
+  "selectFromGallery": "Select from gallery",
+  "takePhoto": "Take photo",
+  "deletePhoto": "Delete photo",
+  "myQrCode": "My QR Code",
+  "networkStatus": "Network Status",
+  "yggdrasilReticulum": "Yggdrasil, Reticulum",
+
+  "mediaAudio": "🎤 Audio",
+  "mediaVideoCircle": "⭕ Video circle",
+  "mediaPhoto": "🖼 Photo",
+  "selectFileType": "Select file type",
+  "photoVideo": "Photo / Video",
+  "document": "Document",
+
+  "deliveryStatus": "Delivery status",
+  "deliveryStatusSent": "Sent",
+  "deliveryStatusDelivered": "Delivered",
+  "deliveryStatusRead": "Read",
+  "noDeliveryInfo": "No delivery info",
+  "noMessages": "No messages yet",
+
+  "onboardingSubtitle": "Private messenger. No phone number. No servers.",
+  "featureE2eTitle": "End-to-end encrypted",
+  "featureE2eSubtitle": "Messages are encrypted with Double Ratchet",
+  "featureP2pTitle": "Peer-to-peer network",
+  "featureP2pSubtitle": "Built on Yggdrasil — no central server",
+  "featureNoRegTitle": "No registration",
+  "featureNoRegSubtitle": "Your identity is a cryptographic key pair",
+  "createIdentity": "Create Identity",
+  "keyLocalWarning": "Your keys are generated locally and never leave your device.",
+
+  "setPinTitle": "Set PIN",
+  "confirmPinTitle": "Confirm PIN",
+  "enterPinTitle": "Enter PIN",
+  "setPinSubtitle": "Create a PIN to protect your messages",
+  "confirmPinSubtitle": "Re-enter your PIN to confirm",
+  "unlockSubtitle": "Unlock HubCore Chat",
+  "pinsDoNotMatch": "PINs do not match",
+  "wrongPin": "Wrong PIN",
+  "wrongPinAttemptsLeft": "{remaining, plural, one{Wrong PIN — {remaining} attempt left} other{Wrong PIN — {remaining} attempts left}}",
+  "@wrongPinAttemptsLeft": {
+    "placeholders": {
+      "remaining": {"type": "int"}
+    }
+  },
+  "failedAttemptsCount": "{count, plural, one{{count} failed attempt} other{{count} failed attempts}}",
+  "@failedAttemptsCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "keyMismatchTitle": "Key mismatch",
+  "keyMismatchContent": "Database is encrypted with a different key. This happens after device reinstall or recovery.\n\nDelete data and start fresh?",
+  "resetButton": "Reset",
+
+  "profileSetupTitle": "What's your name?",
+  "profileSetupSubtitle": "Your nickname and avatar will be visible to your contacts. You can skip.",
+  "nicknameHint": "Your nickname (optional)",
+
+  "tabChats": "Chats",
+  "tabContacts": "Contacts",
+  "tabProfile": "Profile",
+  "tabSettings": "Settings",
+  "pressAgainToExit": "Press again to exit",
+
+  "searchChats": "Search chats…",
+  "searchMessages": "Search messages",
+  "newGroup": "New group",
+  "noChatMatchingQuery": "No chats matching \"{query}\"",
+  "@noChatMatchingQuery": {
+    "placeholders": {
+      "query": {"type": "String"}
+    }
+  },
+  "emptyChatsTitle": "No chats yet",
+  "emptyChatsSubtitle": "Add a contact via QR code\nor share your code",
+  "addContactButton": "Add contact",
+  "deleteChatTitle": "Delete chat?",
+  "deleteChatContent": "All messages with \"{name}\" will be deleted.",
+  "@deleteChatContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "noContactsYet": "No contacts yet",
+  "tapPlusToAdd": "Tap + to add someone",
+
+  "myProfile": "My Profile",
+  "shareQrToAddContacts": "Share QR to add contacts",
+  "yourNickname": "Your nickname",
+
+  "searchMessagesTitle": "Search messages…",
+  "nothingFound": "Nothing found",
+  "youPrefix": "You: ",
+
+  "addContactTitle": "Add Contact",
+  "shareYourKey": "Share your key",
+  "contactKeyLabel": "Contact key",
+  "fromFile": "From file",
+  "pasteKeyHint": "base58 key or contact JSON",
+  "pasteFromClipboard": "Paste from clipboard",
+  "contactNameHint": "Contact name (optional)",
+  "qrCodeNotFound": "QR code not found in image",
+  "invalidPublicKey": "Invalid public key",
+
+  "sendMessage": "Send Message",
+  "clearChatHistory": "Clear Chat History",
+  "clearChatTitle": "Clear chat history?",
+  "clearChatContent": "All messages and files with {name} will be deleted. Keys and sessions are not affected.",
+  "@clearChatContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "chatHistoryCleared": "Chat history cleared",
+  "deleteContactTitle": "Delete contact?",
+  "deleteContactContent": "Remove {name} from your contacts? Messages will not be deleted.",
+  "@deleteContactContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "messageHint": "Message",
+  "chatInitializing": "App is still initializing. Wait a second.",
+  "contactNotFoundError": "Contact not found. Try exchanging QR codes again.",
+  "noSessionError": "No session established. Wait for the contact to come online.",
+  "databaseError": "Database unavailable. Restart the app.",
+  "networkErrorQueued": "Network error. Message queued and will be sent automatically.",
+  "sendError": "Failed to send. Try again.",
+  "reply": "Reply",
+  "forward": "Forward",
+  "forwardTo": "Forward to…",
+  "messageForwarded": "Message forwarded",
+  "muteNotifications": "Mute",
+  "unmuteNotifications": "Enable notifications",
+  "autoDeleteOff": "Auto-delete off",
+  "autoDeleteLabel": "Auto-delete: {duration}",
+  "@autoDeleteLabel": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
+  "autoDelete1Min": "1 minute",
+  "autoDelete1Hour": "1 hour",
+  "autoDelete1Day": "1 day",
+  "autoDelete1Week": "1 week",
+  "autoDeleteDisabled": "Off",
+  "deleteLocally": "Delete locally",
+  "deleteForAll": "Delete for all",
+  "deleteCancelSend": "Delete (cancel send)",
+  "copyText": "Copy",
+  "sendAttempt": "Attempt {current}/{max}",
+  "@sendAttempt": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "max": {"type": "int"}
+    }
+  },
+  "lastSeenRecently": "last seen recently",
+  "lastSeenMinutesAgo": "last seen {m} min ago",
+  "@lastSeenMinutesAgo": {
+    "placeholders": {
+      "m": {"type": "int"}
+    }
+  },
+  "lastSeenHoursAgo": "last seen {h}h ago",
+  "@lastSeenHoursAgo": {
+    "placeholders": {
+      "h": {"type": "int"}
+    }
+  },
+  "lastSeenYesterday": "last seen yesterday",
+  "lastSeenDaysAgo": "last seen {d} days ago",
+  "@lastSeenDaysAgo": {
+    "placeholders": {
+      "d": {"type": "int"}
+    }
+  },
+  "fileTooLarge": "File too large (max {mb} MB)",
+  "@fileTooLarge": {
+    "placeholders": {
+      "mb": {"type": "int"}
+    }
+  },
+  "groupLabel": "Group",
+  "noMessagesHint": "No messages yet\nPull to refresh",
+
+  "monthJan": "January",
+  "monthFeb": "February",
+  "monthMar": "March",
+  "monthApr": "April",
+  "monthMay": "May",
+  "monthJun": "June",
+  "monthJul": "July",
+  "monthAug": "August",
+  "monthSep": "September",
+  "monthOct": "October",
+  "monthNov": "November",
+  "monthDec": "December",
+
+  "newGroupTitle": "New Group",
+  "groupNameHint": "Group name",
+  "selectMembersLabel": "Select members",
+  "noContactsToAdd": "No contacts to add",
+  "enterGroupName": "Enter a group name",
+  "selectAtLeastOneMember": "Select at least one member",
+  "messagingNotReady": "Messaging not ready",
+  "createGroupButton": "{count, plural, one{Create (1 member)} other{Create ({count} members)}}",
+  "@createGroupButton": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+
+  "membersCount": "{count, plural, one{1 member} other{{count} members}}",
+  "@membersCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "notGroupMember": "You are no longer a member of this group",
+  "leaveGroup": "Leave group",
+  "leaveGroupTitle": "Leave group?",
+  "leaveGroupContent": "You will no longer receive messages from this group.",
+  "groupManagement": "Group management",
+  "youInGroup": "you",
+  "noData": "No data",
+
+  "renameGroup": "Rename group",
+  "addMember": "Add member",
+  "noAvailableContacts": "No available contacts to add",
+  "invitationSent": "Invitation sent",
+  "removeMemberTitle": "Remove member?",
+  "removeMemberContent": "{name} will be removed from the group.",
+  "@removeMemberContent": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "deleteGroupTitle": "Delete group?",
+  "deleteGroupContent": "The group will be deleted for all members. This action cannot be undone.",
+  "groupRenamed": "Group renamed",
+  "memberRemovedMessage": "{name} removed from group",
+  "@memberRemovedMessage": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "unnamedGroup": "Unnamed",
+  "tapToRename": "Tap to rename",
+  "adminLabel": "Admin: {name}",
+  "@adminLabel": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "settingsTitle": "Settings",
+  "sectionIdentity": "Identity",
+  "rotateSigningKey": "Rotate Signing Key",
+  "rotateSigningKeyDesc": "Issue a new signing key certified by master",
+  "fingerprintCopied": "Fingerprint copied",
+  "publicKeyCopied": "Public key copied",
+  "signingKeyRotated": "Signing key rotated",
+  "sectionNetwork": "Network",
+  "sectionBackup": "Backup & Restore",
+  "exportBackup": "Export Identity Backup",
+  "exportBackupDesc": "Save encrypted backup file",
+  "importBackup": "Import Identity Backup",
+  "importBackupDesc": "Restore identity from backup file",
+  "sectionSecurity": "Security",
+  "softwareKeystore": "Software Keystore",
+  "softwareKeystoreDesc": "Android 8 does not guarantee hardware key protection. Android 9+ recommended.",
+  "duressPin": "Duress PIN",
+  "duressPinDesc": "Silent wipe PIN — entering it erases all data",
+  "wipeAllData": "Wipe All Data",
+  "wipeAllDataDesc": "Irreversibly delete all keys and messages",
+  "backupPassword": "Backup Password",
+  "importBackupDialogTitle": "Import Identity Backup?",
+  "importBackupDialogContent": "This will replace your current identity. Messages and contacts are NOT restored.",
+  "enterPassword": "Enter password",
+  "identityNotLoaded": "Identity not loaded",
+  "sodiumNotReady": "Sodium not ready",
+  "backupSavedTo": "Backup saved to: {path}",
+  "@backupSavedTo": {
+    "placeholders": {
+      "path": {"type": "String"}
+    }
+  },
+  "exportFailed": "Export failed: {error}",
+  "@exportFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "importFailed": "Import failed: {error}",
+  "@importFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "identityRestored": "Identity restored. Please restart the app.",
+  "appNotUnlocked": "App not unlocked",
+  "duressPinSet": "Duress PIN set",
+  "duressPinRemoved": "Duress PIN removed",
+  "wrongCurrentPin": "Wrong current PIN",
+  "enterCurrentPin": "Enter current PIN",
+  "setDuressPin": "Set duress PIN",
+  "confirmDuressPin": "Confirm duress PIN",
+  "pinConfirmIdentity": "Confirm your identity before changing security settings",
+  "duressPinSetHelp": "This PIN silently wipes all data when entered at unlock",
+  "duressPinConfirmHelp": "Re-enter duress PIN to confirm",
+  "duressMustDiffer": "Duress PIN must differ from your unlock PIN",
+  "removeDuressPin": "Remove duress PIN",
+  "wipeAllDataTitle": "Wipe All Data?",
+  "wipeAllDataContent": "This will permanently delete your identity key, all messages, and contacts. This cannot be undone.",
+  "wipeButton": "Wipe",
+  "retryInterval": "Retry interval",
+  "maxAttempts": "Max send attempts",
+
+  "networkSettingsTitle": "Network Settings",
+  "peersList": "Peers list",
+  "trustedPeersOnly": "Trusted peers only",
+  "trustedPeersOnlyDesc": "Only contacts' Yggdrasil keys can peer inbound",
+  "allInboundAllowed": "All inbound peering allowed (default)",
+  "trustedPeersModeOn": "Trusted-peers mode on. Add contacts to populate the whitelist.",
+  "lanDiscoveryPassword": "LAN discovery password",
+  "openDiscovery": "Open — any device on LAN is discovered",
+  "protectedDiscovery": "Protected — only devices with same password",
+  "wifiLanDiscovery": "WiFi LAN Discovery",
+  "autoInterface": "AutoInterface (mDNS)",
+  "autoInterfaceDesc": "Device discovery on local network",
+  "tcpTransportNodes": "TCP Transport Nodes",
+  "tcpTransportDesc": "Connection to RNS transport nodes over internet. At least one needed for mobile networks.",
+  "builtIn": "Built-in",
+  "addTransportNode": "Add transport node",
+  "rnsTransportNode": "RNS Transport Node",
+  "addNodeHint": "host:port (e.g. 1.2.3.4:4242)",
+  "reticulumViaYgg": "Reticulum via Yggdrasil",
+  "addYggRnsNode": "Add Yggdrasil RNS node",
+  "restartReticulum": "Restart Reticulum",
+  "addPeer": "Add peer",
+  "addYggPeer": "Add Yggdrasil peer",
+  "peerPriority": "Peer Priority (1–255)",
+  "priority": "Priority",
+  "lanDiscoveryPasswordTitle": "LAN Discovery Password",
+  "openDiscoveryHint": "Leave empty for open discovery",
+  "ddns": "DDNS",
+  "ddnsProvider": "Provider",
+  "ddnsDomain": "Domain",
+  "ddnsToken": "Token / API key",
+  "peerAddress": "Peer address",
+  "peerModeHelp": "⚠ White IP or port forwarding on router needed for peer mode.",
+  "publicPeerMode": "Public peer mode",
+  "publicPeerModeDesc": "Phone accepts inbound Yggdrasil connections",
+  "wifiOnly": "WiFi only",
+  "disableOnMobile": "Disable peer mode on mobile network",
+  "port": "Port",
+  "notSet": "Not set",
+  "addressCopied": "Address copied",
+  "notImplementedYet": "{name} — not implemented yet",
+  "@notImplementedYet": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+
+  "networkStatusTitle": "Network Status",
+  "yggdrasilNode": "Yggdrasil Node",
+  "myAddress": "My Address",
+  "nodePublicKey": "Node Public Key",
+  "listeningInbound": "Listening (inbound peers)",
+  "peersConnectedCount": "Peers ({up}/{total} up)",
+  "@peersConnectedCount": {
+    "placeholders": {
+      "up": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "noPeersConnected": "No peers connected",
+  "activeSessionsCount": "Active Sessions ({count})",
+  "@activeSessionsCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "inbound": "inbound",
+  "outbound": "outbound"
+}
