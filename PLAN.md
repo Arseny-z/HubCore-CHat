@@ -2,23 +2,23 @@
 
 ## P0 — Security (release blockers)
 
-- [ ] P0-1 Sign `contact_hello` with sender's signing key — MITM key substitution possible without this
-- [ ] P0-2 Sign `senderEphPub` in DM payload
-- [ ] P0-3 Verify signing key on every incoming message
-- [ ] P0-4 Remove auto-delete session on decrypt error — any garbage packet resets session (DoS vector)
-- [ ] P0-5 Fix fire-and-forget futures in `message_router.dart` — send errors swallowed silently
-- [ ] P0-6 Fix `_sendDeliveredReceipt()` ignoring returned Future — wrong delivery status shown in UI
-- [ ] P0-7 Add `messageId` to group messages — delivery receipts impossible without it
+- [x] P0-1 Sign `contact_hello` with sender's signing key — MITM key substitution possible without this
+- [x] P0-2 Sign `senderEphPub` in DM payload
+- [x] P0-3 Verify signing key on every incoming message
+- [x] P0-4 Remove auto-delete session on decrypt error — any garbage packet resets session (DoS vector)
+- [x] P0-5 Fix fire-and-forget futures in `message_router.dart` — send errors swallowed silently
+- [x] P0-6 Fix `_sendDeliveredReceipt()` ignoring returned Future — wrong delivery status shown in UI
+- [x] P0-7 Add `messageId` to group messages — delivery receipts impossible without it
 
 ## P1 — Correctness bugs
 
-- [ ] P1-1 `ProcessReceiptUseCase` — unify two desynchronized receipt paths
-- [ ] P1-2 `EnsureSessionUseCase` — add mutex on session init to fix race condition on parallel send
-- [ ] P1-3 `AppLockUseCase` — null lockManager leaves DB open in background
-- [ ] P1-4 Write `message_receipts` rows on direct `sendMessage`
-- [ ] P1-5 `AcceptGroupInviteUseCase` — new member cannot decrypt existing messages, fix chain sync
-- [ ] P1-6 Keep sending `senderEphPub` until `msg_delivered` receipt confirmed
-- [ ] P1-7 `ErrorEvent` in EventBus + Snackbar for crypto/transport init failures
+- [x] P1-1 `ProcessReceiptUseCase` — unify two desynchronized receipt paths
+- [x] P1-2 `EnsureSessionUseCase` — add mutex on session init to fix race condition on parallel send
+- [x] P1-3 `AppLockUseCase` — null lockManager leaves DB open in background
+- [x] P1-4 Write `message_receipts` rows on direct `sendMessage`
+- [x] P1-5 `AcceptGroupInviteUseCase` — new member cannot decrypt existing messages, fix chain sync
+- [x] P1-6 Keep sending `senderEphPub` until `msg_delivered` receipt confirmed
+- [x] P1-7 `ErrorEvent` in EventBus + Snackbar for crypto/transport init failures
 
 ## P2 — Core UX
 
