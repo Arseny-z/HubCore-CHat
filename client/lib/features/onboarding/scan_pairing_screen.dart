@@ -10,9 +10,8 @@ import '../../domain/entities/device_pairing_payload.dart';
 import '../../infrastructure/crypto/device_pairing_crypto.dart';
 import '../../shared/providers/app_providers.dart';
 import '../../shared/providers/storage_providers.dart'
-    show storageProvider, pendingPairingProfileProvider, PendingPairingProfile,
+    show pendingPairingProfileProvider, PendingPairingProfile,
          pendingPairingQrProvider;
-import '../../shared/providers/messaging_providers.dart' show eventBusProvider;
 import '../../shared/widgets/hubcore_app_bar.dart';
 
 enum _State { scanning, importing, waitingAck, noPermission, error }

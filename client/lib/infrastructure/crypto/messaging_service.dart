@@ -900,7 +900,7 @@ class MessagingService {
     if (devicesVersion != null && devicesChanged != null) {
       final contact = await _storage.contacts.findByMasterPub(senderPub);
       if (contact?.id != null) {
-        final cachedVersion = contact!.devicesVersion ?? 0;
+        final cachedVersion = contact!.devicesVersion;
         if (devicesVersion > cachedVersion) {
           for (final d in devicesChanged) {
             try {

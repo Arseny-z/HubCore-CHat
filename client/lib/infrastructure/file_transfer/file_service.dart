@@ -176,7 +176,7 @@ class FileService implements FileTransferPort {
         _eventBus?.emit(FileTransferProgressEvent(
             messageId: t.msgId!, progress: 0.0, done: true));
         // Delete placeholder if it was created
-        _storage.messages.deleteById(t.msgId!).catchError((_) {});
+        _storage.messages.deleteById(t.msgId!).catchError((_) => 0);
       }
       AppLogger.d('File', 'cancelled incoming transfer tid=$transferId');
     }
