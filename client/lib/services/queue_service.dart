@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -9,7 +8,6 @@ import '../application/events/app_events.dart';
 import '../domain/entities/message.dart';
 import '../infrastructure/transport/composite_transport.dart';
 import '../infrastructure/crypto/multi_session_manager.dart';
-import '../infrastructure/crypto/multi_device_payload_codec.dart';
 import '../domain/entities/envelope.dart';
 import '../infrastructure/connectivity/connectivity_watcher.dart';
 import '../infrastructure/crypto/messaging_service.dart';
@@ -302,14 +300,6 @@ class QueueService {
       await _storage.sendQueue.delete(entry.id!);
       return;
     }
-
-    // For v=2 multi-device: check per_device_status and skip acked devices.
-    // per_device_status is JSON: {"device_id": "sent|acked|failed"}
-    // If all are acked, entry should already be deleted — but guard here too.
-    final perDeviceStatus = entry.perDeviceStatus != null
-        ? (jsonDecode(entry.perDeviceStatus!) as Map<String, dynamic>)
-            .cast<String, String>()
-        : <String, String>{};
 
     // Reuse the already-encrypted body — no re-encryption, DR state unchanged.
     final envelope = Envelope(

@@ -158,7 +158,7 @@ class SendDmUseCase {
       if (enc.newEphPub != null) 'e': base64.encode(enc.newEphPub!),
       if (enc.senderEphPub != null) 's': base64.encode(enc.senderEphPub!),
       't': ttlSec ?? 0,
-      ?'id': mid,
+      if (mid != null) 'id': mid,
     };
     return Uint8List.fromList(utf8.encode(jsonEncode(m)));
   }

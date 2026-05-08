@@ -787,22 +787,20 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
           await storage.groups.setMemberRole(widget.groupId, newAdmin, GroupRole.admin);
           await storage.groups.setAdmin(widget.groupId, newAdmin);
           // Broadcast role change
-          if (messaging != null) {
-            final payload = Uint8List.fromList(utf8.encode(jsonEncode({
-              'type': 'group_role_change',
-              'group_id': widget.groupId,
-              'target_pub': newAdmin,
-              'new_role': GroupRole.admin,
-              'changed_by': myPub,
-            })));
-            for (final pub in memberPubs) {
-              try {
-                final env = await messaging.encryptBox(pub, payload);
-                final contact = await storage.contacts.findByMasterPub(pub);
-                await transport.sendEnvelope(env,
-                    transportAddresses: contact?.transportAddresses);
-              } catch (_) {}
-            }
+          final payload = Uint8List.fromList(utf8.encode(jsonEncode({
+            'type': 'group_role_change',
+            'group_id': widget.groupId,
+            'target_pub': newAdmin,
+            'new_role': GroupRole.admin,
+            'changed_by': myPub,
+          })));
+          for (final pub in memberPubs) {
+            try {
+              final env = await messaging.encryptBox(pub, payload);
+              final contact = await storage.contacts.findByMasterPub(pub);
+              await transport.sendEnvelope(env,
+                  transportAddresses: contact?.transportAddresses);
+            } catch (_) {}
           }
           await _doLeave(myPub);
         }

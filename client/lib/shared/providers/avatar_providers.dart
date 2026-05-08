@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'dart:async';
-
 import '../../application/events/app_events.dart';
 import '../services/avatar_service.dart';
 import 'storage_providers.dart' show eventBusProvider;

@@ -18,7 +18,6 @@ import '../../infrastructure/file_transfer/file_service.dart';
 import '../../services/key_backup_service.dart';
 import '../../application/events/app_event_bus.dart';
 import '../../yggdrasil/yggdrasil_node.dart';
-import '../utils/logger.dart';
 
 import 'storage_providers.dart';
 

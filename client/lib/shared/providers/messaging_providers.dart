@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/events/app_event_bus.dart';
 import '../../application/events/app_events.dart';
 import '../../application/use_cases/contacts/send_contact_hello_use_case.dart';
-import '../../domain/entities/file_transfer.dart';
 import '../../application/use_cases/messaging/process_receipt_use_case.dart';
 import '../../application/use_cases/messaging/receive_envelope_use_case.dart';
 import '../../application/use_cases/messaging/ensure_session_use_case.dart';

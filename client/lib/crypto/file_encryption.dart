@@ -38,7 +38,6 @@ class FileEncryption {
   FileEncryption(this._sodium);
 
   static const chunkPlainSize = 1024 * 1024; // 1 MB per encryption chunk
-  static final _magic  = Uint8List.fromList([0x53, 0x46, 0x30, 0x32]); // "SF02"
   static final _magic3 = Uint8List.fromList([0x53, 0x46, 0x30, 0x33]); // "SF03"
 
   // ── Legacy v1 (in-memory) ─────────────────────────────────────────────────

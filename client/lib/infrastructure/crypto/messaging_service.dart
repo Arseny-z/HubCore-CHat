@@ -474,10 +474,8 @@ class MessagingService {
         final sys = jsonDecode(utf8.decode(boxPlain)) as Map<String, dynamic>;
         if (sys['type'] == 'ttl_delete') {
           final ids = (sys['ids'] as List).cast<int>();
-          int deleted = 0;
           for (final id in ids) {
-            final rows = await _storage.messages.deleteById(id);
-            if (rows > 0) deleted++;
+            await _storage.messages.deleteById(id);
           }
           return null;
         }

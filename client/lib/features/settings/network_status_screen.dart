@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../shared/providers/app_providers.dart';
 import '../../shared/utils/l10n.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
 import '../../yggdrasil/yggdrasil_node.dart';

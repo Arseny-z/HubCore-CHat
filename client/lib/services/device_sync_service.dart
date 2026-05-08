@@ -1,8 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../application/events/app_event_bus.dart';
 import '../application/events/app_events.dart';
 import '../domain/entities/envelope.dart';

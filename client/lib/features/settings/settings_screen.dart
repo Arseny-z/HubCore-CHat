@@ -8,7 +8,6 @@ import 'package:go_router/go_router.dart';
 import '../../shared/providers/app_providers.dart';
 import '../../shared/providers/yggdrasil_controller.dart';
 import '../../shared/utils/l10n.dart';
-import '../../shared/utils/logger.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
 import '../../shared/utils/pubkey_codec.dart';
 import '../../shared/widgets/pin_pad.dart';
@@ -789,157 +788,11 @@ class _TransportPanelState extends ConsumerState<_TransportPanel> {
   }
 }
 
-// ── Yggdrasil Peers List ──────────────────────────────────────────────────────
+// ── Yggdrasil Peers List (moved to network_settings_screen.dart) ─────────────
 
-/// Returns the URI without query parameters.
-String _uriWithoutQuery(String uri) {
-  final idx = uri.indexOf('?');
-  return idx == -1 ? uri : uri.substring(0, idx);
-}
+// Removed: _uriWithoutQuery, _uriBase, _YggPeersList — duplicated leftovers.
+// Live versions live in network_settings_screen.dart.
 
-/// Returns the base URI (without query) for comparison.
-String _uriBase(String uri) => _uriWithoutQuery(uri);
-
-class _YggPeersList extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final peers = ref.watch(yggPeersProvider);
-    final storage = ref.watch(storageProvider);
-
-    Future<void> savePeers() async {
-      if (!storage.isOpen) return;
-      final extra = ref.read(yggPeersProvider.notifier).extra;
-      await storage.settings.set(kExtraYggPeersKey, jsonEncode(extra));
-    }
-
-    return Column(
-      children: [
-        ...peers.map((uri) {
-          final isBuiltIn = kYggdrasilDefaultPeers.any((p) =>
-              uri == p || uri.startsWith('$p?') || _uriBase(uri) == p);
-          // OPT-1: extract priority from URI query param
-          final parsedUri = Uri.tryParse(uri);
-          final priorityStr = parsedUri?.queryParameters['priority'] ?? '';
-          final hasPriority = priorityStr.isNotEmpty;
-
-          return ListTile(
-            dense: true,
-            leading: Icon(
-              isBuiltIn ? Icons.lock_outline : Icons.dns_outlined,
-              size: 20,
-              color: isBuiltIn ? Colors.white38 : null,
-            ),
-            title: Text(
-              _uriWithoutQuery(uri),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-            ),
-            subtitle: Row(
-              children: [
-                if (isBuiltIn)
-                  Text(context.l10n.builtIn,
-                      style: const TextStyle(fontSize: 11, color: Colors.white38)),
-                if (hasPriority) ...[
-                  if (isBuiltIn) const Text(' · ', style: TextStyle(color: Colors.white38)),
-                  Text('${context.l10n.priority} $priorityStr',
-                      style: const TextStyle(fontSize: 11, color: Colors.white54)),
-                ],
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // OPT-1: edit priority button
-                IconButton(
-                  icon: const Icon(Icons.low_priority, size: 18),
-                  tooltip: context.l10n.priority,
-                  color: hasPriority ? Colors.blue : Colors.white38,
-                  onPressed: () async {
-                    final ctrl = TextEditingController(text: priorityStr);
-                    final result = await showDialog<String>(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: Text(context.l10n.peerPriority),
-                        content: TextField(
-                          controller: ctrl,
-                          keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            hintText: context.l10n.notSet,
-                            border: const OutlineInputBorder(),
-                          ),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: Text(context.l10n.cancel),
-                          ),
-                          FilledButton(
-                            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-                            child: Text(context.l10n.save),
-                          ),
-                        ],
-                      ),
-                    );
-                    if (result == null) return;
-                    final notifier = ref.read(yggPeersProvider.notifier);
-                    notifier.remove(uri);
-                    final baseUri = _uriWithoutQuery(uri);
-                    final newUri = result.isEmpty ? baseUri : '$baseUri?priority=$result';
-                    notifier.add(newUri);
-                    await savePeers();
-                  },
-                ),
-                if (!isBuiltIn)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 18),
-                    onPressed: () async {
-                      ref.read(yggPeersProvider.notifier).remove(uri);
-                      await savePeers();
-                    },
-                  ),
-              ],
-            ),
-          );
-        }),
-        ListTile(
-          dense: true,
-          leading: const Icon(Icons.add, size: 20),
-          title: Text(context.l10n.addPeer),
-          onTap: () async {
-            final ctrl = TextEditingController();
-            final result = await showDialog<String>(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: Text(context.l10n.addYggPeer),
-                content: TextField(
-                  controller: ctrl,
-                  decoration: const InputDecoration(
-                    hintText: 'tls://example.com:443',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.url,
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(context.l10n.cancel),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-                    child: Text(context.l10n.addPeer),
-                  ),
-                ],
-              ),
-            );
-            if (result != null && result.isNotEmpty) {
-              ref.read(yggPeersProvider.notifier).add(result);
-              await savePeers();
-            }
-          },
-        ),
-      ],
-    );
-  }
-}
 
 // ── Yggdrasil Security Panel (SEC-1 + SEC-2) ─────────────────────────────────
 

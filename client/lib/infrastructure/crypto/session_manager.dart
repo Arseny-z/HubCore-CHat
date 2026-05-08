@@ -10,7 +10,6 @@ import '../../domain/entities/session_record.dart';
 import '../../domain/ports/session_port.dart';
 import '../../domain/repositories/contact_repository.dart';
 import '../../domain/repositories/session_repository.dart';
-import '../../shared/utils/pubkey_codec.dart';
 
 export '../../domain/ports/session_port.dart';
 

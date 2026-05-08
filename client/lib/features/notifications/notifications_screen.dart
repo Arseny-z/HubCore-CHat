@@ -300,12 +300,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Widget _buildGroupInvite(AppNotification n) {
     String groupName = '?';
     String adminPub = n.fromPub;
-    int memberCount = 0;
     try {
       final m = jsonDecode(n.payload) as Map<String, dynamic>;
       groupName = m['name'] as String? ?? '?';
       adminPub = m['admin'] as String? ?? n.fromPub;
-      memberCount = (m['members'] as List?)?.length ?? 0;
     } catch (_) {}
 
     final adminShort = adminPub.length > 8 ? adminPub.substring(0, 8) : adminPub;

@@ -440,9 +440,6 @@ class _CamPreviewCircle extends StatelessWidget {
     if (!ctrl.value.isInitialized) return const SizedBox.shrink();
 
     final prev = ctrl.value.previewSize!;
-    // previewSize в портретной ориентации возвращает width > height (landscape)
-    final aspectRatio = prev.height / prev.width;
-
     return Material(
       color: Colors.transparent,
       child: ClipOval(

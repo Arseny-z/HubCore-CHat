@@ -105,7 +105,6 @@ class _DevicesScreenState extends ConsumerState<DevicesScreen> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final d = _devices[i];
-                    final isThisDevice = d.isActive && i == 0;
                     return ListTile(
                       leading: CircleAvatar(
                         backgroundColor: d.isMaster

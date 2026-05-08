@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../shared/providers/app_providers.dart';
 import '../../shared/providers/storage_providers.dart'
-    show storageProvider, pendingPairingProfileProvider, pendingPairingQrProvider;
+    show storageProvider, pendingPairingProfileProvider;
 import '../../shared/utils/l10n.dart';
 import '../../shared/utils/logger.dart';
 import '../../shared/widgets/pin_pad.dart';

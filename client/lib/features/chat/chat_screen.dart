@@ -268,8 +268,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     } else {
       final queue = ref.read(queueServiceProvider);
       if (queue == null) return;
-      final identity = ref.read(identityNotifierProvider);
-      final myPub = identity != null ? PubkeyCodec.encode(identity.masterPublicKey) : '';
       final ensureSession = ref.read(ensureSessionProvider);
       await ensureSession?.execute(chosen.id);
       await queue.sendOrQueue(

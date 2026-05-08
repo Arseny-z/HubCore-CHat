@@ -77,10 +77,6 @@ class MessageRouter {
     }
   }
 
-  // Legacy: used where recipient is unknown (broadcastHello computes per-contact)
-  Future<String?> _myName() => _myNameFor(null);
-  Future<String?> _myAvatar() => _myAvatarFor(null);
-
   /// Builds devices list for inclusion in contact_hello.
   /// Returns (devicesList, devicesVersion).
   Future<(List<Map<String, dynamic>>, int)> _myDevicesPayload() async {

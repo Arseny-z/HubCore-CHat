@@ -210,8 +210,6 @@ class ChatsScreenState extends ConsumerState<ChatsScreen> {
     );
   }
 
-  void _startSearch() => setState(() => _searching = true);
-
   void _stopSearch() {
     setState(() {
       _searching = false;
@@ -364,7 +362,7 @@ class ChatsScreenState extends ConsumerState<ChatsScreen> {
 class _ChatTile extends StatelessWidget {
   final _ChatItem item;
   final VoidCallback onTap;
-  const _ChatTile({super.key, required this.item, required this.onTap});
+  const _ChatTile({required this.item, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
