@@ -62,6 +62,14 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   StreamSubscription<GroupAdminChangedEvent>? _adminChangedSub;
   final Map<String, (int, int)> _queueAttempts = {};
 
+  // In-chat search state
+  bool _searchMode = false;
+  final _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  List<int> _searchHitIds = [];
+  int _currentHitIdx = -1;
+  final Map<int, GlobalKey> _hitKeys = {};
+
   @override
   void initState() {
     super.initState();
@@ -93,10 +101,139 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     _retrySub?.cancel();
     _deletedGroupSub?.cancel();
     _adminChangedSub?.cancel();
+    _searchDebounce?.cancel();
+    _searchCtrl.dispose();
     _ctrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  // ── In-chat search ────────────────────────────────────────────────────────
+
+  void _toggleSearch() {
+    setState(() {
+      _searchMode = !_searchMode;
+      if (!_searchMode) {
+        _searchCtrl.clear();
+        _searchHitIds = [];
+        _currentHitIdx = -1;
+        _hitKeys.clear();
+      }
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+      _runSearch(value.trim());
+    });
+  }
+
+  Future<void> _runSearch(String q) async {
+    if (q.length < 2) {
+      if (mounted) setState(() {
+        _searchHitIds = [];
+        _currentHitIdx = -1;
+        _hitKeys.clear();
+      });
+      return;
+    }
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+    final hits =
+        await storage.messages.search(q, conversationId: widget.groupId);
+    if (!mounted) return;
+    final ids = hits.where((m) => m.id != null).map((m) => m.id!).toList();
+    setState(() {
+      _searchHitIds = ids;
+      _hitKeys
+        ..clear()
+        ..addEntries(ids.map((id) => MapEntry(id, GlobalKey())));
+      _currentHitIdx = ids.isEmpty ? -1 : 0;
+    });
+    if (ids.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrentHit());
+    }
+  }
+
+  void _navHit(int direction) {
+    if (_searchHitIds.isEmpty) return;
+    setState(() {
+      _currentHitIdx =
+          (_currentHitIdx + direction) % _searchHitIds.length;
+      if (_currentHitIdx < 0) _currentHitIdx += _searchHitIds.length;
+    });
+    _scrollToCurrentHit();
+  }
+
+  void _scrollToCurrentHit() {
+    if (_currentHitIdx < 0 || _currentHitIdx >= _searchHitIds.length) return;
+    final id  = _searchHitIds[_currentHitIdx];
+    final key = _hitKeys[id];
+    final ctx = key?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.3,
+    );
+  }
+
+  PreferredSizeWidget _buildSearchAppBar(BuildContext context) {
+    final hasQuery = _searchCtrl.text.trim().length >= 2;
+    final hasHits = _searchHitIds.isNotEmpty;
+    return HubCoreAppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: _toggleSearch,
+      ),
+      title: TextField(
+        controller: _searchCtrl,
+        autofocus: true,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          hintText: context.l10n.searchInChatHint,
+          hintStyle: const TextStyle(color: Colors.white38),
+          border: InputBorder.none,
+        ),
+        onChanged: _onSearchChanged,
+      ),
+      actions: [
+        if (hasQuery && !hasHits)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Text(context.l10n.searchNoMatches,
+                  style:
+                      const TextStyle(color: Colors.white54, fontSize: 13)),
+            ),
+          ),
+        if (hasHits) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Center(
+              child: Text(
+                context.l10n.searchHitsCount(
+                    _currentHitIdx + 1, _searchHitIds.length),
+                style:
+                    const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up),
+            tooltip: 'Prev',
+            onPressed: () => _navHit(-1),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down),
+            tooltip: 'Next',
+            onPressed: () => _navHit(1),
+          ),
+        ],
+      ],
+    );
   }
 
   void _subscribeToEvents() {
@@ -870,11 +1007,20 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       deliveryCounts: _deliveryCounts.isNotEmpty ? _deliveryCounts : null,
       onDeliveryTap: _showDeliveryDetails,
       onMessageVisible: _onMessageVisible,
+      searchQuery: _searchMode ? _searchCtrl.text.trim() : null,
+      currentHitMsgId: (_searchMode &&
+              _currentHitIdx >= 0 &&
+              _currentHitIdx < _searchHitIds.length)
+          ? _searchHitIds[_currentHitIdx]
+          : null,
+      messageKeys: _searchMode && _hitKeys.isNotEmpty ? _hitKeys : null,
     );
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E1621),
-      appBar: HubCoreAppBar(
+      appBar: _searchMode
+          ? _buildSearchAppBar(context)
+          : HubCoreAppBar(
         titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -924,6 +1070,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: context.l10n.searchInChatHint,
+            onPressed: _toggleSearch,
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (v) {

@@ -42,6 +42,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final Set<String> _readReceiptSent = {}; // messageId → already sent read receipt
   Message? _replyTo; // message being replied to
 
+  // In-chat search state
+  bool _searchMode = false;
+  final _searchCtrl = TextEditingController();
+  Timer? _searchDebounce;
+  List<int> _searchHitIds = []; // message ids, ordered (newest-first like DAO)
+  int _currentHitIdx = -1;
+  final Map<int, GlobalKey> _hitKeys = {};
+
   // EventBus subscriptions — cancelled in dispose().
   // Messages/deleted/status/retry are owned by chatMessagesProvider.
   StreamSubscription<MessageReceivedEvent>? _msgSub;
@@ -129,10 +137,139 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _progressSub?.cancel();
     _contactSub?.cancel();
     _keyChangeSub?.cancel();
+    _searchDebounce?.cancel();
+    _searchCtrl.dispose();
     _ctrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  // ── In-chat search ────────────────────────────────────────────────────────
+
+  void _toggleSearch() {
+    setState(() {
+      _searchMode = !_searchMode;
+      if (!_searchMode) {
+        _searchCtrl.clear();
+        _searchHitIds = [];
+        _currentHitIdx = -1;
+        _hitKeys.clear();
+      }
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () {
+      _runSearch(value.trim());
+    });
+  }
+
+  Future<void> _runSearch(String q) async {
+    if (q.length < 2) {
+      if (mounted) setState(() {
+        _searchHitIds = [];
+        _currentHitIdx = -1;
+        _hitKeys.clear();
+      });
+      return;
+    }
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+    final hits = await storage.messages.search(q,
+        conversationId: widget.contactMasterPub);
+    if (!mounted) return;
+    final ids = hits.where((m) => m.id != null).map((m) => m.id!).toList();
+    setState(() {
+      _searchHitIds = ids;
+      _hitKeys
+        ..clear()
+        ..addEntries(ids.map((id) => MapEntry(id, GlobalKey())));
+      _currentHitIdx = ids.isEmpty ? -1 : 0;
+    });
+    if (ids.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToCurrentHit());
+    }
+  }
+
+  void _navHit(int direction) {
+    if (_searchHitIds.isEmpty) return;
+    setState(() {
+      _currentHitIdx =
+          (_currentHitIdx + direction) % _searchHitIds.length;
+      if (_currentHitIdx < 0) _currentHitIdx += _searchHitIds.length;
+    });
+    _scrollToCurrentHit();
+  }
+
+  void _scrollToCurrentHit() {
+    if (_currentHitIdx < 0 || _currentHitIdx >= _searchHitIds.length) return;
+    final id  = _searchHitIds[_currentHitIdx];
+    final key = _hitKeys[id];
+    final ctx = key?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 300),
+      alignment: 0.3,
+    );
+  }
+
+  PreferredSizeWidget _buildSearchAppBar(BuildContext context) {
+    final hasQuery = _searchCtrl.text.trim().length >= 2;
+    final hasHits = _searchHitIds.isNotEmpty;
+    return HubCoreAppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: _toggleSearch,
+      ),
+      title: TextField(
+        controller: _searchCtrl,
+        autofocus: true,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          hintText: context.l10n.searchInChatHint,
+          hintStyle: const TextStyle(color: Colors.white38),
+          border: InputBorder.none,
+        ),
+        onChanged: _onSearchChanged,
+      ),
+      actions: [
+        if (hasQuery && !hasHits)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Center(
+              child: Text(context.l10n.searchNoMatches,
+                  style:
+                      const TextStyle(color: Colors.white54, fontSize: 13)),
+            ),
+          ),
+        if (hasHits) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Center(
+              child: Text(
+                context.l10n.searchHitsCount(
+                    _currentHitIdx + 1, _searchHitIds.length),
+                style:
+                    const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_up),
+            tooltip: 'Prev',
+            onPressed: () => _navHit(-1),
+          ),
+          IconButton(
+            icon: const Icon(Icons.keyboard_arrow_down),
+            tooltip: 'Next',
+            onPressed: () => _navHit(1),
+          ),
+        ],
+      ],
+    );
   }
 
   bool get _isAtBottom =>
@@ -945,64 +1082,78 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       onMessageVisible: _onMessageVisible,
       onReply: (msg) => setState(() => _replyTo = msg),
       onForward: _forwardMessage,
+      searchQuery: _searchMode ? _searchCtrl.text.trim() : null,
+      currentHitMsgId: (_searchMode &&
+              _currentHitIdx >= 0 &&
+              _currentHitIdx < _searchHitIds.length)
+          ? _searchHitIds[_currentHitIdx]
+          : null,
+      messageKeys: _searchMode && _hitKeys.isNotEmpty ? _hitKeys : null,
     );
 
     return Scaffold(
       backgroundColor: const Color(0xFF0E1621),
-      appBar: HubCoreAppBar(
-        titleSpacing: 0,
-        title: GestureDetector(
-          onTap: () => context.push('/contact/${widget.contactMasterPub}')
-              .then((_) => _loadContact()),
-          child: Row(
-            children: [
-              ContactAvatar(name: displayName, masterPub: widget.contactMasterPub, radius: 18),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+      appBar: _searchMode
+          ? _buildSearchAppBar(context)
+          : HubCoreAppBar(
+              titleSpacing: 0,
+              title: GestureDetector(
+                onTap: () => context.push('/contact/${widget.contactMasterPub}')
+                    .then((_) => _loadContact()),
+                child: Row(
                   children: [
-                    Text(
-                      displayName,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, fontSize: 16),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (lastSeenText != null)
-                      Text(
-                        lastSeenText,
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.white54),
-                        overflow: TextOverflow.ellipsis,
+                    ContactAvatar(name: displayName, masterPub: widget.contactMasterPub, radius: 18),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (lastSeenText != null)
+                            Text(
+                              lastSeenText,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.white54),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _contact?.muted == true ? Icons.volume_off : Icons.volume_up_outlined,
-              color: _contact?.muted == true ? Colors.white38 : null,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.search),
+                  tooltip: context.l10n.searchInChatHint,
+                  onPressed: _toggleSearch,
+                ),
+                IconButton(
+                  icon: Icon(
+                    _contact?.muted == true ? Icons.volume_off : Icons.volume_up_outlined,
+                    color: _contact?.muted == true ? Colors.white38 : null,
+                  ),
+                  tooltip: _contact?.muted == true ? context.l10n.unmuteNotifications : context.l10n.muteNotifications,
+                  onPressed: _toggleMute,
+                ),
+                IconButton(
+                  icon: Icon(
+                    _ttlSeconds != null ? Icons.timer : Icons.timer_outlined,
+                    color: _ttlSeconds != null ? const Color(0xFF2AABEE) : null,
+                  ),
+                  tooltip: _ttlSeconds != null
+                      ? context.l10n.autoDeleteLabel(_formatTtl(_ttlSeconds!))
+                      : context.l10n.autoDeleteOff,
+                  onPressed: _pickTtl,
+                ),
+              ],
             ),
-            tooltip: _contact?.muted == true ? context.l10n.unmuteNotifications : context.l10n.muteNotifications,
-            onPressed: _toggleMute,
-          ),
-          IconButton(
-            icon: Icon(
-              _ttlSeconds != null ? Icons.timer : Icons.timer_outlined,
-              color: _ttlSeconds != null ? const Color(0xFF2AABEE) : null,
-            ),
-            tooltip: _ttlSeconds != null
-                ? context.l10n.autoDeleteLabel(_formatTtl(_ttlSeconds!))
-                : context.l10n.autoDeleteOff,
-            onPressed: _pickTtl,
-          ),
-        ],
-      ),
       body: Column(
         children: [
           if (_sendError != null)

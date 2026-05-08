@@ -432,5 +432,15 @@
   "panicSensitivityMedium": "Medium (recommended)",
   "panicSensitivityHigh": "High (light shakes — risk of false positives)",
   "panicWipeImminent": "Wiping all data",
-  "panicTapToCancel": "Tap anywhere to cancel"
+  "panicTapToCancel": "Tap anywhere to cancel",
+
+  "searchInChatHint": "Search in chat",
+  "searchHitsCount": "{current} of {total}",
+  "@searchHitsCount": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "searchNoMatches": "No matches"
 }

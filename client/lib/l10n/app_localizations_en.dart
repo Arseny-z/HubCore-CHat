@@ -961,4 +961,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get panicTapToCancel => 'Tap anywhere to cancel';
+
+  @override
+  String get searchInChatHint => 'Search in chat';
+
+  @override
+  String searchHitsCount(int current, int total) {
+    return '$current of $total';
+  }
+
+  @override
+  String get searchNoMatches => 'No matches';
 }

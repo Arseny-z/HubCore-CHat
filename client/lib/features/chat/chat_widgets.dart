@@ -58,6 +58,13 @@ List<Widget> buildMessageList({
   void Function(Message msg)? onReply,
   /// Called when user taps "Forward" on a message.
   void Function(Message msg)? onForward,
+  /// Active in-chat search query — highlights matches in each bubble.
+  String? searchQuery,
+  /// Message id of the currently-focused search hit (extra emphasis on bubble).
+  int? currentHitMsgId,
+  /// GlobalKeys for matched messages — used by caller to scroll-to-hit.
+  /// Caller pre-allocates one key per match; passes id → key here.
+  Map<int, GlobalKey>? messageKeys,
 }) {
   final items = <Widget>[];
   DateTime? lastDay;
@@ -107,8 +114,11 @@ List<Widget> buildMessageList({
     final retry = (msg.messageId != null && queueAttempts != null)
         ? queueAttempts[msg.messageId!]
         : null;
+    final searchKey = (msg.id != null && messageKeys != null)
+        ? messageKeys[msg.id!]
+        : null;
     items.add(MessageBubble(
-      key: ValueKey('msg_${msg.id ?? msg.sentAt}'),
+      key: searchKey ?? ValueKey('msg_${msg.id ?? msg.sentAt}'),
       message: msg,
       isMe: isMe,
       isGroup: isGroup,
@@ -134,6 +144,8 @@ List<Widget> buildMessageList({
           : null,
       onReply: onReply != null ? (m) => onReply(m) : null,
       onForward: onForward != null ? (m) => onForward(m) : null,
+      searchQuery: searchQuery,
+      isCurrentHit: msg.id != null && msg.id == currentHitMsgId,
     ));
   }
 
@@ -214,6 +226,10 @@ class MessageBubble extends StatelessWidget {
   final void Function(Message)? onReply;
   /// Called when user taps "Forward".
   final void Function(Message)? onForward;
+  /// Active in-chat search query — highlights matches in the body.
+  final String? searchQuery;
+  /// True if this is the currently-focused search hit (extra emphasis).
+  final bool isCurrentHit;
 
   const MessageBubble({
     super.key,
@@ -235,6 +251,8 @@ class MessageBubble extends StatelessWidget {
     this.onVisible,
     this.onReply,
     this.onForward,
+    this.searchQuery,
+    this.isCurrentHit = false,
   });
 
   @override
@@ -273,6 +291,9 @@ class MessageBubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: isVideoCircle ? null : radius,
+            border: isCurrentHit
+                ? Border.all(color: const Color(0xFFFFB300), width: 2)
+                : null,
           ),
           child: Column(
             crossAxisAlignment:
@@ -353,10 +374,7 @@ class MessageBubble extends StatelessWidget {
                           : null,
                     )
               else
-                Text(
-                  message.body,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                ),
+                _highlightedBody(message.body, searchQuery),
               const SizedBox(height: 2),
               if (retryCount != null) ...[
                 Padding(
@@ -536,6 +554,43 @@ class MessageBubble extends StatelessWidget {
       default: return protocol.length > 4 ? protocol.substring(0, 4) : protocol;
     }
   }
+}
+
+// ── In-chat search highlight ──────────────────────────────────────────────────
+
+/// Renders [text] with [query] occurrences highlighted (case-insensitive).
+/// Falls back to a plain Text when [query] is null/empty.
+Widget _highlightedBody(String text, String? query) {
+  const baseStyle = TextStyle(color: Colors.white, fontSize: 15);
+  if (query == null || query.isEmpty) {
+    return Text(text, style: baseStyle);
+  }
+  final lower  = text.toLowerCase();
+  final lowerQ = query.toLowerCase();
+  final spans  = <TextSpan>[];
+  int start = 0;
+  while (true) {
+    final idx = lower.indexOf(lowerQ, start);
+    if (idx < 0) {
+      if (start < text.length) {
+        spans.add(TextSpan(text: text.substring(start)));
+      }
+      break;
+    }
+    if (idx > start) {
+      spans.add(TextSpan(text: text.substring(start, idx)));
+    }
+    spans.add(TextSpan(
+      text: text.substring(idx, idx + query.length),
+      style: const TextStyle(
+        backgroundColor: Color(0xFFFFB300),
+        color: Colors.black,
+        fontWeight: FontWeight.w600,
+      ),
+    ));
+    start = idx + query.length;
+  }
+  return RichText(text: TextSpan(style: baseStyle, children: spans));
 }
 
 // ── Status tick ───────────────────────────────────────────────────────────────

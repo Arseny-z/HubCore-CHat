@@ -58,7 +58,7 @@
 
 - [x] P6-1 Notification on contact key change
 - [x] P6-2 Panic button — shake gesture → wipe (Soft countdown / Hard instant, low/medium/high sensitivity)
-- [ ] P6-3 Message search
+- [x] P6-3 Message search (global SearchScreen + per-chat search bar with hit navigation in DM/groups)
 - [ ] P6-4 Message reactions
 - [ ] P6-5 Embed public Yggdrasil peer list in APK
 - [ ] P6-6 Channels (Telegram-like feed, ~17 days)

@@ -432,5 +432,15 @@
   "panicSensitivityMedium": "Средняя (рекомендуется)",
   "panicSensitivityHigh": "Высокая (лёгкие встряски — риск ложных срабатываний)",
   "panicWipeImminent": "Стирание всех данных",
-  "panicTapToCancel": "Коснитесь экрана, чтобы отменить"
+  "panicTapToCancel": "Коснитесь экрана, чтобы отменить",
+
+  "searchInChatHint": "Поиск в чате",
+  "searchHitsCount": "{current} из {total}",
+  "@searchHitsCount": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "searchNoMatches": "Не найдено"
 }

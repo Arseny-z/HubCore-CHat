@@ -1807,6 +1807,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tap anywhere to cancel'**
   String get panicTapToCancel;
+
+  /// No description provided for @searchInChatHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in chat'**
+  String get searchInChatHint;
+
+  /// No description provided for @searchHitsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} of {total}'**
+  String searchHitsCount(int current, int total);
+
+  /// No description provided for @searchNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get searchNoMatches;
 }
 
 class _AppLocalizationsDelegate

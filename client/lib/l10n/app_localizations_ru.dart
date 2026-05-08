@@ -973,4 +973,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get panicTapToCancel => 'Коснитесь экрана, чтобы отменить';
+
+  @override
+  String get searchInChatHint => 'Поиск в чате';
+
+  @override
+  String searchHitsCount(int current, int total) {
+    return '$current из $total';
+  }
+
+  @override
+  String get searchNoMatches => 'Не найдено';
 }
