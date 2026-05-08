@@ -126,9 +126,9 @@ class DoubleRatchetCryptoService implements CryptoPort {
       }
 
       // Verify senderEphPub signature if present
-      if (meta.senderEphSig != null && contact.signingPub != null) {
+      if (meta.senderEphSig != null) {
         try {
-          final signingPub = PubkeyCodec.decode(contact.signingPub!);
+          final signingPub = PubkeyCodec.decode(contact.signingPub);
           final valid = _sodium.crypto.sign.verifyDetached(
             signature: meta.senderEphSig!,
             message: meta.senderEphPub!,
@@ -241,9 +241,9 @@ class DoubleRatchetCryptoService implements CryptoPort {
         AppLogger.w('DR', 'REJECTED: senderEphPub length ${meta.senderEphPub!.length} != 32');
         return const DecryptResult.failure(DecryptError.badSignature);
       }
-      if (meta.senderEphSig != null && contact.signingPub != null) {
+      if (meta.senderEphSig != null) {
         try {
-          final signingPub = PubkeyCodec.decode(contact.signingPub!);
+          final signingPub = PubkeyCodec.decode(contact.signingPub);
           final valid = _sodium.crypto.sign.verifyDetached(
             signature: meta.senderEphSig!,
             message: meta.senderEphPub!,
@@ -285,9 +285,9 @@ class DoubleRatchetCryptoService implements CryptoPort {
     Uint8List signature,
   ) async {
     final contact = await _contacts.findByMasterPub(contactMasterPub58);
-    if (contact?.signingPub == null) return false;
+    if (contact == null) return false;
     try {
-      final signingPub = PubkeyCodec.decode(contact!.signingPub!);
+      final signingPub = PubkeyCodec.decode(contact.signingPub);
       return _sodium.crypto.sign.verifyDetached(
         signature: signature,
         message: data,

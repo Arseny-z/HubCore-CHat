@@ -53,7 +53,7 @@ class DeviceSyncService {
     for (final d in myDevices) {
       // Skip self and devices with no known address
       if (d.deviceId == myDevId) continue;
-      if (d.transportAddresses == null || d.transportAddresses!.isEmpty) continue;
+      if (d.transportAddresses.isEmpty) continue;
 
       // Send plain JSON — no NaCl box needed (device sync is between own devices,
       // Yggdrasil provides transport-level encryption)

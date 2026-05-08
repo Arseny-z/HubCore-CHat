@@ -226,7 +226,7 @@ class MessageRouter {
   void start() {
     if (_transport == null) return;
     _incomingSub?.cancel();
-    _incomingSub = _transport!.incoming.listen(_handleIncomingEnvelope);
+    _incomingSub = _transport.incoming.listen(_handleIncomingEnvelope);
   }
 
   /// Returns a short hex key for dedup based on the raw payload hash.

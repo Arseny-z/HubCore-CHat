@@ -591,11 +591,10 @@ class MessagingService {
         // Verify senderEphPub signature if present.
         // Skip verification if signingPub == masterPub (placeholder before
         // first contact_hello — happens when contact was added via QR without sp field).
-        final hasRealSigningKey = contact.signingPub != null &&
-            contact.signingPub != senderPub;
+        final hasRealSigningKey = contact.signingPub != senderPub;
         if (payload.senderEphSig != null && hasRealSigningKey) {
           try {
-            final signingPub = PubkeyCodec.decode(contact.signingPub!);
+            final signingPub = PubkeyCodec.decode(contact.signingPub);
             final valid = _sodium.crypto.sign.verifyDetached(
               signature: payload.senderEphSig!,
               message: payload.senderEphPub!,
@@ -631,11 +630,10 @@ class MessagingService {
     // Mirrors senderEphSig logic: skip if sig absent (backward compat) or
     // signingPub is still a placeholder (== masterPub).
     if (payload.newEphPub != null && payload.newEphSig != null) {
-      final hasRealSigningKey = contact.signingPub != null &&
-          contact.signingPub != senderPub;
+      final hasRealSigningKey = contact.signingPub != senderPub;
       if (hasRealSigningKey) {
         try {
-          final signingPub = PubkeyCodec.decode(contact.signingPub!);
+          final signingPub = PubkeyCodec.decode(contact.signingPub);
           final valid = _sodium.crypto.sign.verifyDetached(
             signature: payload.newEphSig!,
             message:   payload.newEphPub!,
