@@ -907,4 +907,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get outbound => 'исходящий';
+
+  @override
+  String get errorYggdrasilStartFailed => 'Не удалось запустить Yggdrasil';
+
+  @override
+  String get errorReticulumStartFailed => 'Не удалось запустить Reticulum';
+
+  @override
+  String get errorSessionCorrupted => 'Сессия повреждена — будет восстановлена при следующем сообщении';
 }

@@ -404,5 +404,9 @@
     }
   },
   "inbound": "входящий",
-  "outbound": "исходящий"
+  "outbound": "исходящий",
+
+  "errorYggdrasilStartFailed": "Не удалось запустить Yggdrasil",
+  "errorReticulumStartFailed": "Не удалось запустить Reticulum",
+  "errorSessionCorrupted": "Сессия повреждена — будет восстановлена при следующем сообщении"
 }

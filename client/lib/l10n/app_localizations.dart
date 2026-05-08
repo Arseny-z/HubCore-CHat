@@ -1687,6 +1687,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'outbound'**
   String get outbound;
+
+  /// No description provided for @errorYggdrasilStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Yggdrasil failed to start'**
+  String get errorYggdrasilStartFailed;
+
+  /// No description provided for @errorReticulumStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reticulum failed to start'**
+  String get errorReticulumStartFailed;
+
+  /// No description provided for @errorSessionCorrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'Session corrupted — will renegotiate on next message'**
+  String get errorSessionCorrupted;
 }
 
 class _AppLocalizationsDelegate

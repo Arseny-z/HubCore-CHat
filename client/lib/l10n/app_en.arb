@@ -404,5 +404,9 @@
     }
   },
   "inbound": "inbound",
-  "outbound": "outbound"
+  "outbound": "outbound",
+
+  "errorYggdrasilStartFailed": "Yggdrasil failed to start",
+  "errorReticulumStartFailed": "Reticulum failed to start",
+  "errorSessionCorrupted": "Session corrupted — will renegotiate on next message"
 }

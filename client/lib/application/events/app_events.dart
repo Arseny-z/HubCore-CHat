@@ -190,3 +190,39 @@ class DevicePairingCompleteEvent extends AppEvent {
 class ProfileSyncedEvent extends AppEvent {
   const ProfileSyncedEvent();
 }
+
+// ── Errors ────────────────────────────────────────────────────────────────────
+
+/// Severity of an [ErrorEvent] — drives Snackbar styling and whether
+/// the listener auto-dismisses or requires user acknowledgement.
+enum ErrorSeverity { warning, error, critical }
+
+/// Codes for user-facing error messages. The listener resolves a code to a
+/// localized string; emitting code-based events keeps domain/infrastructure
+/// layers free of `BuildContext`.
+enum ErrorEventCode {
+  yggdrasilStartFailed,
+  reticulumStartFailed,
+  sessionCorrupted,
+}
+
+/// A non-fatal error that the user should be informed about
+/// (transport init failure, session reset on corruption, etc.).
+///
+/// Emitted from Use Cases / providers / services. The UI subscribes via
+/// [AppEventBus.on] and shows a Snackbar.
+class ErrorEvent extends AppEvent {
+  /// Short tag for logs (e.g. "Yggdrasil", "Reticulum", "MsgSvc").
+  final String source;
+  final ErrorEventCode code;
+  /// Optional extra info appended to the localized message in the Snackbar.
+  final String? details;
+  final ErrorSeverity severity;
+
+  const ErrorEvent({
+    required this.source,
+    required this.code,
+    this.details,
+    this.severity = ErrorSeverity.error,
+  });
+}

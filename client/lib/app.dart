@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'application/events/app_event_bus.dart';
 import 'l10n/app_localizations.dart';
+import 'shared/utils/l10n.dart';
 
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/onboarding/lock_screen.dart';
@@ -26,6 +30,9 @@ import 'features/settings/pair_device_screen.dart';
 import 'features/onboarding/scan_pairing_screen.dart';
 import 'features/settings/network_settings_screen.dart';
 import 'shared/providers/app_providers.dart';
+
+/// Global key for showing Snackbars from non-widget code (event listeners).
+final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 final _router = GoRouter(
   initialLocation: '/',
@@ -82,6 +89,7 @@ class HubCoreApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'HubCore Chat',
+      scaffoldMessengerKey: scaffoldMessengerKey,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       theme: ThemeData(
@@ -147,6 +155,7 @@ class _AppLifecycleGuardState extends ConsumerState<_AppLifecycleGuard>
   // Short pauses (file picker, permission dialog) don't trigger lock.
   static const _lockDelay = Duration(seconds: 30);
   DateTime? _pausedAt;
+  StreamSubscription<ErrorEvent>? _errorSub;
 
   @override
   void initState() {
@@ -154,12 +163,42 @@ class _AppLifecycleGuardState extends ConsumerState<_AppLifecycleGuard>
     WidgetsBinding.instance.addObserver(this);
     // Enable FLAG_SECURE: prevent screenshots and screen recording (Android).
     // const MethodChannel('hubcore/security').invokeMethod('setSecureFlag', true);
+    _errorSub = ref.read(eventBusProvider).on<ErrorEvent>().listen(_onErrorEvent);
   }
 
   @override
   void dispose() {
+    _errorSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _onErrorEvent(ErrorEvent e) {
+    final messenger = scaffoldMessengerKey.currentState;
+    final ctx = scaffoldMessengerKey.currentContext;
+    if (messenger == null || ctx == null) return;
+    final l = ctx.l10n;
+    final base = switch (e.code) {
+      ErrorEventCode.yggdrasilStartFailed => l.errorYggdrasilStartFailed,
+      ErrorEventCode.reticulumStartFailed => l.errorReticulumStartFailed,
+      ErrorEventCode.sessionCorrupted     => l.errorSessionCorrupted,
+    };
+    final text = e.details != null && e.details!.isNotEmpty
+        ? '$base: ${e.details}'
+        : base;
+    final color = switch (e.severity) {
+      ErrorSeverity.warning  => Colors.orange.shade800,
+      ErrorSeverity.error    => Colors.red.shade700,
+      ErrorSeverity.critical => Colors.red.shade900,
+    };
+    messenger.showSnackBar(SnackBar(
+      content: Text(text),
+      backgroundColor: color,
+      behavior: SnackBarBehavior.floating,
+      duration: e.severity == ErrorSeverity.warning
+          ? const Duration(seconds: 4)
+          : const Duration(seconds: 8),
+    ));
   }
 
   @override

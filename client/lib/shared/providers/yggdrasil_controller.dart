@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../application/events/app_event_bus.dart';
 import '../../shared/utils/logger.dart';
 import '../../yggdrasil/yggdrasil_node.dart';
 import 'crypto_providers.dart' show yggPeersProvider;
@@ -159,6 +160,12 @@ class YggdrasilController {
       });
     } catch (e) {
       AppLogger.e('Ygg', 'start failed', error: e);
+      _ref.read(eventBusProvider).emit(ErrorEvent(
+        source: 'Ygg',
+        code: ErrorEventCode.yggdrasilStartFailed,
+        details: e.toString(),
+        severity: ErrorSeverity.critical,
+      ));
     }
   }
 

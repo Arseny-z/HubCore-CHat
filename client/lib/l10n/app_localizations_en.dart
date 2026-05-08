@@ -895,4 +895,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get outbound => 'outbound';
+
+  @override
+  String get errorYggdrasilStartFailed => 'Yggdrasil failed to start';
+
+  @override
+  String get errorReticulumStartFailed => 'Reticulum failed to start';
+
+  @override
+  String get errorSessionCorrupted => 'Session corrupted — will renegotiate on next message';
 }

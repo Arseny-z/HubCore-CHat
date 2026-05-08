@@ -10,6 +10,7 @@ import 'chats_screen.dart';
 import 'contacts_tab.dart';
 import 'profile_tab.dart';
 import '../settings/settings_screen.dart';
+import '../../application/events/app_event_bus.dart';
 import '../../infrastructure/notifications/notification_service.dart';
 import '../../shared/providers/app_providers.dart';
 import '../../shared/providers/avatar_providers.dart';
@@ -171,6 +172,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           'Reticulum started [$netType] (${isMobile ? "mobile" : "wifi"} peers=${allPeers.split(",").length})');
     } catch (e) {
       AppLogger.w('Main', 'Reticulum start failed', error: e);
+      ref.read(eventBusProvider).emit(ErrorEvent(
+        source: 'Reticulum',
+        code: ErrorEventCode.reticulumStartFailed,
+        details: e.toString(),
+        severity: ErrorSeverity.error,
+      ));
     }
   }
 
