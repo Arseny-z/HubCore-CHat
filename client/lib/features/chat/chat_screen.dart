@@ -15,6 +15,7 @@ import '../../shared/utils/logger.dart';
 import '../../shared/utils/pubkey_codec.dart';
 import '../../shared/widgets/contact_avatar.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
+import '../../storage/dao/notifications_dao.dart';
 import 'chat_messages_provider.dart';
 import 'chat_widgets.dart';
 
@@ -46,16 +47,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   StreamSubscription<MessageReceivedEvent>? _msgSub;
   StreamSubscription<FileTransferProgressEvent>? _progressSub;
   StreamSubscription<ContactUpdatedEvent>? _contactSub;
+  StreamSubscription<ContactKeyChangeEvent>? _keyChangeSub;
+
+  AppNotification? _keyChangeNotif;
 
   @override
   void initState() {
     super.initState();
     _loadContact();
     _loadTtl();
+    _loadKeyChange();
     _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _subscribeToMessages();
     });
+  }
+
+  Future<void> _loadKeyChange() async {
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+    final n = await storage.notifications
+        .pendingKeyChangeForContact(widget.contactMasterPub);
+    if (mounted) setState(() => _keyChangeNotif = n);
+  }
+
+  Future<void> _trustKey() async {
+    final n = _keyChangeNotif;
+    if (n?.id == null) return;
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+    await storage.notifications.updateStatus(n!.id!, 'acknowledged');
+    if (mounted) {
+      setState(() => _keyChangeNotif = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.keyTrusted)),
+      );
+    }
   }
 
   void _subscribeToMessages() {
@@ -87,6 +114,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _loadContact();
       }
     });
+
+    // Show banner when current contact's security key changes (epoch advanced).
+    _keyChangeSub = bus.on<ContactKeyChangeEvent>().listen((event) {
+      if (event.contactPub == widget.contactMasterPub && mounted) {
+        _loadKeyChange();
+      }
+    });
   }
 
   @override
@@ -94,6 +128,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _msgSub?.cancel();
     _progressSub?.cancel();
     _contactSub?.cancel();
+    _keyChangeSub?.cancel();
     _ctrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
@@ -980,6 +1015,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ],
             ),
+          if (_keyChangeNotif != null)
+            _KeyChangeBanner(
+              onVerify: () => context.push('/contact/${widget.contactMasterPub}'),
+              onTrust: _trustKey,
+            ),
           if (_contact?.isStranger == true)
             _StrangerBanner(
               onAdd: _addStrangerToContacts,
@@ -1131,6 +1171,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onVideoCircleSend: _sendVideoCircle,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _KeyChangeBanner extends StatelessWidget {
+  final VoidCallback onVerify;
+  final VoidCallback onTrust;
+  const _KeyChangeBanner({required this.onVerify, required this.onTrust});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFF3A2A0E),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: Colors.amber, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.l10n.keyChangeBanner,
+              style: const TextStyle(color: Colors.amber, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: onVerify,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.amber,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(context.l10n.verifyContactQR,
+                style: const TextStyle(fontSize: 13)),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onTrust,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white54,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(context.l10n.trustNewKey,
+                style: const TextStyle(fontSize: 13)),
+          ),
         ],
       ),
     );

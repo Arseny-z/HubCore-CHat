@@ -56,7 +56,7 @@
 
 ## P6 — Polish
 
-- [ ] P6-1 Notification on contact key change
+- [x] P6-1 Notification on contact key change
 - [ ] P6-2 Panic button — shake gesture → wipe
 - [ ] P6-3 Message search
 - [ ] P6-4 Message reactions

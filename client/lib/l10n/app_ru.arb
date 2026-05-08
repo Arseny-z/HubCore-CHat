@@ -408,5 +408,17 @@
 
   "errorYggdrasilStartFailed": "Не удалось запустить Yggdrasil",
   "errorReticulumStartFailed": "Не удалось запустить Reticulum",
-  "errorSessionCorrupted": "Сессия повреждена — будет восстановлена при следующем сообщении"
+  "errorSessionCorrupted": "Сессия повреждена — будет восстановлена при следующем сообщении",
+
+  "keyChangeBanner": "Ключ безопасности контакта изменился — подтвердите перед доверием",
+  "keyChangeTitle": "Ключ безопасности изменился",
+  "keyChangeDescription": "{name} мог(ла) переустановить приложение или контакт может быть скомпрометирован. Подтвердите новый QR-код перед доверием.",
+  "@keyChangeDescription": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "verifyContactQR": "Проверить QR",
+  "trustNewKey": "Доверять",
+  "keyTrusted": "Ключ отмечен как доверенный"
 }

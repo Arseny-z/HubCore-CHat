@@ -408,5 +408,17 @@
 
   "errorYggdrasilStartFailed": "Yggdrasil failed to start",
   "errorReticulumStartFailed": "Reticulum failed to start",
-  "errorSessionCorrupted": "Session corrupted — will renegotiate on next message"
+  "errorSessionCorrupted": "Session corrupted — will renegotiate on next message",
+
+  "keyChangeBanner": "Contact's security key changed — verify before trusting",
+  "keyChangeTitle": "Security key changed",
+  "keyChangeDescription": "{name} may have reinstalled the app, or the contact may be compromised. Verify the new QR code before trusting.",
+  "@keyChangeDescription": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "verifyContactQR": "Verify QR",
+  "trustNewKey": "Trust",
+  "keyTrusted": "Key marked as trusted"
 }

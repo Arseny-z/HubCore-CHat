@@ -1705,6 +1705,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Session corrupted — will renegotiate on next message'**
   String get errorSessionCorrupted;
+
+  /// No description provided for @keyChangeBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact's security key changed — verify before trusting'**
+  String get keyChangeBanner;
+
+  /// No description provided for @keyChangeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Security key changed'**
+  String get keyChangeTitle;
+
+  /// No description provided for @keyChangeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} may have reinstalled the app, or the contact may be compromised. Verify the new QR code before trusting.'**
+  String keyChangeDescription(String name);
+
+  /// No description provided for @verifyContactQR.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify QR'**
+  String get verifyContactQR;
+
+  /// No description provided for @trustNewKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Trust'**
+  String get trustNewKey;
+
+  /// No description provided for @keyTrusted.
+  ///
+  /// In en, this message translates to:
+  /// **'Key marked as trusted'**
+  String get keyTrusted;
 }
 
 class _AppLocalizationsDelegate

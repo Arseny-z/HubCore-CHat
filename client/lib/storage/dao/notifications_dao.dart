@@ -65,6 +65,18 @@ class NotificationsDao {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
+  /// Latest pending key_change notification for a given contact (or null).
+  Future<AppNotification?> pendingKeyChangeForContact(String contactPub) async {
+    final rows = await _db.query(
+      'notifications',
+      where: "type = 'key_change' AND status = 'pending' AND from_pub = ?",
+      whereArgs: [contactPub],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+    return rows.isEmpty ? null : AppNotification.fromMap(rows.first);
+  }
+
   Future<void> updateStatus(int id, String status) =>
       _db.update('notifications', {'status': status},
           where: 'id = ?', whereArgs: [id]);

@@ -916,4 +916,23 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get errorSessionCorrupted => 'Сессия повреждена — будет восстановлена при следующем сообщении';
+
+  @override
+  String get keyChangeBanner => 'Ключ безопасности контакта изменился — подтвердите перед доверием';
+
+  @override
+  String get keyChangeTitle => 'Ключ безопасности изменился';
+
+  @override
+  String keyChangeDescription(String name) =>
+      '$name мог(ла) переустановить приложение или контакт может быть скомпрометирован. Подтвердите новый QR-код перед доверием.';
+
+  @override
+  String get verifyContactQR => 'Проверить QR';
+
+  @override
+  String get trustNewKey => 'Доверять';
+
+  @override
+  String get keyTrusted => 'Ключ отмечен как доверенный';
 }

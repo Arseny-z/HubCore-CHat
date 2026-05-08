@@ -7,13 +7,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../application/events/app_events.dart'
-    show GroupInviteReceivedEvent, GroupAdminTransferReceivedEvent;
+    show GroupInviteReceivedEvent, GroupAdminTransferReceivedEvent,
+         ContactKeyChangeEvent;
 import '../../application/use_cases/groups/accept_group_invite_use_case.dart';
 import '../../domain/entities/group_invite.dart';
 import '../../domain/entities/message.dart';
 import '../../shared/providers/app_providers.dart';
 import '../../shared/providers/crypto_providers.dart';
+import '../../shared/utils/l10n.dart';
 import '../../shared/utils/pubkey_codec.dart';
+import '../../shared/widgets/contact_avatar.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
 import '../../storage/dao/notifications_dao.dart';
 
@@ -30,6 +33,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _loading = true;
   StreamSubscription? _inviteSub;
   StreamSubscription? _transferSub;
+  StreamSubscription? _keyChangeSub;
 
   @override
   void initState() {
@@ -40,14 +44,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   void _subscribe() {
     final bus = ref.read(eventBusProvider);
-    _inviteSub   = bus.on<GroupInviteReceivedEvent>().listen((_) { if (mounted) _load(); });
-    _transferSub = bus.on<GroupAdminTransferReceivedEvent>().listen((_) { if (mounted) _load(); });
+    _inviteSub    = bus.on<GroupInviteReceivedEvent>().listen((_) { if (mounted) _load(); });
+    _transferSub  = bus.on<GroupAdminTransferReceivedEvent>().listen((_) { if (mounted) _load(); });
+    _keyChangeSub = bus.on<ContactKeyChangeEvent>().listen((_) { if (mounted) _load(); });
   }
 
   @override
   void dispose() {
     _inviteSub?.cancel();
     _transferSub?.cancel();
+    _keyChangeSub?.cancel();
     super.dispose();
   }
 
@@ -218,7 +224,133 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (n.type == 'group_admin_transfer') {
       return _buildAdminTransfer(n);
     }
+    if (n.type == 'key_change') {
+      return _buildKeyChange(n);
+    }
     return const SizedBox.shrink();
+  }
+
+  Future<void> _trustKey(AppNotification n) async {
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen || n.id == null) return;
+    await storage.notifications.updateStatus(n.id!, 'acknowledged');
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.keyTrusted)),
+      );
+    }
+  }
+
+  Future<void> _verifyContact(AppNotification n) async {
+    // Open the contact profile so the user can re-scan / compare QR.
+    // The notification stays pending until the user explicitly trusts.
+    if (!mounted) return;
+    await context.push('/contact/${n.fromPub}');
+  }
+
+  Widget _buildKeyChange(AppNotification n) {
+    String contactPub = n.fromPub;
+    try {
+      final m = jsonDecode(n.payload) as Map<String, dynamic>;
+      contactPub = m['pub'] as String? ?? n.fromPub;
+    } catch (_) {}
+
+    final time = DateTime.fromMillisecondsSinceEpoch(n.createdAt * 1000);
+    final timeStr = '${time.hour.toString().padLeft(2, '0')}:'
+        '${time.minute.toString().padLeft(2, '0')}';
+
+    return FutureBuilder(
+      future: ref.read(storageProvider).contacts.findByMasterPub(contactPub),
+      builder: (ctx, snap) {
+        final contact = snap.data;
+        final name = contact?.alias.isNotEmpty == true
+            ? contact!.alias
+            : contactPub.length > 12
+                ? contactPub.substring(0, 12)
+                : contactPub;
+
+        return Card(
+          color: const Color(0xFF1C2733),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        ContactAvatar(
+                          name: name, masterPub: contactPub, radius: 20),
+                        Container(
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF1C2733),
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(2),
+                          child: const Icon(Icons.warning_amber_rounded,
+                              color: Colors.amber, size: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(context.l10n.keyChangeTitle,
+                              style: const TextStyle(
+                                  color: Colors.amber, fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(name,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16)),
+                        ],
+                      ),
+                    ),
+                    Text(timeStr,
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(context.l10n.keyChangeDescription(name),
+                    style: const TextStyle(
+                        color: Colors.white60, fontSize: 13)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => _trustKey(n),
+                      child: Text(context.l10n.trustNewKey,
+                          style: const TextStyle(color: Colors.white54)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => _verifyContact(n),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.amber.shade700,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(context.l10n.verifyContactQR),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildAdminTransfer(AppNotification n) {

@@ -904,4 +904,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorSessionCorrupted => 'Session corrupted — will renegotiate on next message';
+
+  @override
+  String get keyChangeBanner => 'Contact\'s security key changed — verify before trusting';
+
+  @override
+  String get keyChangeTitle => 'Security key changed';
+
+  @override
+  String keyChangeDescription(String name) =>
+      '$name may have reinstalled the app, or the contact may be compromised. Verify the new QR code before trusting.';
+
+  @override
+  String get verifyContactQR => 'Verify QR';
+
+  @override
+  String get trustNewKey => 'Trust';
+
+  @override
+  String get keyTrusted => 'Key marked as trusted';
 }
