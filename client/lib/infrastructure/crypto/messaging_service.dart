@@ -627,6 +627,34 @@ class MessagingService {
       }
     }
 
+    // Verify newEphPub signature before advancing the DH ratchet.
+    // Mirrors senderEphSig logic: skip if sig absent (backward compat) or
+    // signingPub is still a placeholder (== masterPub).
+    if (payload.newEphPub != null && payload.newEphSig != null) {
+      final hasRealSigningKey = contact.signingPub != null &&
+          contact.signingPub != senderPub;
+      if (hasRealSigningKey) {
+        try {
+          final signingPub = PubkeyCodec.decode(contact.signingPub!);
+          final valid = _sodium.crypto.sign.verifyDetached(
+            signature: payload.newEphSig!,
+            message:   payload.newEphPub!,
+            publicKey: signingPub,
+          );
+          if (!valid) {
+            AppLogger.w('MsgSvc',
+                'REJECTED: invalid newEphPub signature from ${senderPub.substring(0, 8)}…');
+            return null;
+          }
+          AppLogger.d('MsgSvc',
+              'newEphPub signature VERIFIED from ${senderPub.substring(0, 8)}…');
+        } catch (e) {
+          AppLogger.e('MsgSvc', 'newEphSig verify error', error: e);
+          return null;
+        }
+      }
+    }
+
     final plainBytes = _ratchet.tryDecrypt(
       state,
       payload.ciphertext,
