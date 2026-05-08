@@ -46,13 +46,13 @@
 - [x] P4-3 Group management — add/remove member, rename, key rotation on kick, delete group, admin transfer
 - [x] P4-4 Group roles — admin/write/read/banned, max 3 admins, owner immutable
 
-## P5 — Reticulum (critical path)
+## P5 — Reticulum
 
-- [ ] P5-1 Go port of core RNS into `rnsbind.go` — **everything else in P5 is blocked on this** (~1–3 weeks)
-- [ ] P5-2 `ReticulumService.kt` + `ReticulumNode.dart` — Kotlin/Dart wrappers (~3–4 days)
-- [ ] P5-3 `ReticulumTransport` implementation
-- [ ] P5-4 Reticulum address exchange via QR + `contact_hello`
-- [ ] P5-5 RNS propagation node — store-and-forward replacement for removed relay
+- [x] P5-1 Go port of core RNS into `rnsbind.go` (Identity, Destination, Packet, Announce, Transport, fragmentation)
+- [x] P5-2 `ReticulumService.kt` + `ReticulumNode.dart` — Kotlin/Dart wrappers (foreground service, watchdog)
+- [x] P5-3 `ReticulumTransport` implementation, wired into CompositeTransport
+- [x] P5-4 Reticulum address exchange via QR (`rk` field) + `contact_hello` propagation
+- [ ] P5-5 RNS propagation node — store-and-forward для офлайн-доставки (deferred)
 
 ## P6 — Polish
 

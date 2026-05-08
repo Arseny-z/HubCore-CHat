@@ -11,7 +11,7 @@ import 'yggdrasil_transport.dart'; // envelopeToBytes
 ///
 /// Priority (highest → lowest):
 ///   1. Yggdrasil P2P  — direct, low-latency, no server
-///   2. Reticulum      — LoRa / radio (stub until implemented)
+///   2. Reticulum      — RNS over TCP/WiFi (LoRa/BLE planned)
 ///   3. Meshcore       — LoRa mesh (stub until implemented)
 
 ///
