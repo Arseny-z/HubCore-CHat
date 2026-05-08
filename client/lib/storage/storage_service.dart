@@ -10,6 +10,7 @@ import 'dao/sessions_dao.dart';
 import 'dao/settings_dao.dart';
 import 'dao/send_queue_dao.dart';
 import 'dao/message_receipts_dao.dart';
+import 'dao/message_reactions_dao.dart';
 import 'dao/notifications_dao.dart';
 import 'dao/my_devices_dao.dart';
 import 'dao/contact_devices_dao.dart';
@@ -30,6 +31,7 @@ export 'dao/sessions_dao.dart';
 export 'dao/settings_dao.dart';
 export 'dao/send_queue_dao.dart';
 export 'dao/message_receipts_dao.dart';
+export 'dao/message_reactions_dao.dart';
 export 'dao/notifications_dao.dart';
 export 'dao/my_devices_dao.dart';
 export 'dao/contact_devices_dao.dart';
@@ -62,6 +64,7 @@ class StorageService {
   late SettingsDao settings;
   late SendQueueDao sendQueue;
   late MessageReceiptsDao messageReceipts;
+  late MessageReactionsDao messageReactions;
   late NotificationsDao notifications;
   // Multi-device DAOs
   late MyDevicesDao myDevices;
@@ -93,6 +96,7 @@ class StorageService {
     settings        = SettingsDao(_appDb.db);
     sendQueue       = SendQueueDao(_appDb.db);
     messageReceipts = MessageReceiptsDao(_appDb.db);
+    messageReactions   = MessageReactionsDao(_appDb.db);
     notifications      = NotificationsDao(_appDb.db);
     myDevices          = MyDevicesDao(_appDb.db);
     contactDevices     = ContactDevicesDao(_appDb.db);

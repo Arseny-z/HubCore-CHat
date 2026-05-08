@@ -15,6 +15,7 @@ import '../../shared/utils/logger.dart';
 import '../../shared/utils/pubkey_codec.dart';
 import '../../shared/widgets/contact_avatar.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
+import '../../storage/dao/message_reactions_dao.dart';
 import '../../storage/dao/notifications_dao.dart';
 import 'chat_messages_provider.dart';
 import 'chat_widgets.dart';
@@ -56,8 +57,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   StreamSubscription<FileTransferProgressEvent>? _progressSub;
   StreamSubscription<ContactUpdatedEvent>? _contactSub;
   StreamSubscription<ContactKeyChangeEvent>? _keyChangeSub;
+  StreamSubscription<MessageReactionEvent>? _reactionSub;
 
   AppNotification? _keyChangeNotif;
+  Map<String, List<MessageReaction>> _reactions = {};
 
   @override
   void initState() {
@@ -129,6 +132,77 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _loadKeyChange();
       }
     });
+
+    // Refresh reactions when an incoming reaction targets this conversation.
+    _reactionSub = bus.on<MessageReactionEvent>().listen((event) {
+      if (event.conversationId == widget.contactMasterPub && mounted) {
+        _loadReactions();
+      }
+    });
+  }
+
+  Future<void> _loadReactions() async {
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+    final st = ref
+        .read(chatMessagesProvider(widget.contactMasterPub))
+        .valueOrNull;
+    if (st == null) return;
+    final ids = st.messages
+        .map((m) => m.messageId)
+        .whereType<String>()
+        .toList();
+    final map = await storage.messageReactions.forMessageIds(ids);
+    if (mounted) setState(() => _reactions = map);
+  }
+
+  Future<void> _toggleReaction(Message msg, String emoji) async {
+    if (msg.messageId == null) return;
+    final identity = ref.read(identityNotifierProvider);
+    if (identity == null) return;
+    final myPub = PubkeyCodec.encode(identity.masterPublicKey);
+
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+
+    final existing = await storage.messageReactions.forMessage(msg.messageId!);
+    final mine = existing.where((r) => r.reactorPub == myPub).toList();
+    final removingSame = mine.length == 1 && mine.first.emoji == emoji;
+    final action = removingSame ? 'remove' : 'add';
+
+    if (removingSame) {
+      await storage.messageReactions.clear(msg.messageId!, myPub);
+    } else {
+      await storage.messageReactions.set(MessageReaction(
+        messageId:  msg.messageId!,
+        reactorPub: myPub,
+        emoji:      emoji,
+        createdAt:  DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      ));
+    }
+
+    // Send to peer (best-effort).
+    final messaging = ref.read(messagingServiceProvider);
+    final transport = ref.read(compositeTransportProvider);
+    if (messaging != null) {
+      try {
+        final plain = Uint8List.fromList(utf8.encode(jsonEncode({
+          'type':  'msg_reaction',
+          'mid':   msg.messageId,
+          'emoji': emoji,
+          'action': action,
+        })));
+        final env = await messaging.encryptBox(
+            widget.contactMasterPub, plain);
+        await transport.sendEnvelope(env,
+            transportAddresses: _contact?.transportAddresses);
+      } catch (_) {}
+    }
+
+    final bus = ref.read(eventBusProvider);
+    bus.emit(MessageReactionEvent(
+        messageId: msg.messageId!,
+        conversationId: widget.contactMasterPub));
   }
 
   @override
@@ -137,6 +211,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _progressSub?.cancel();
     _contactSub?.cancel();
     _keyChangeSub?.cancel();
+    _reactionSub?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _ctrl.dispose();
@@ -1063,6 +1138,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final msgState = asyncMsgs.valueOrNull ?? const ChatMessagesState();
     final isInitialLoading = asyncMsgs.isLoading && asyncMsgs.value == null;
 
+    // Reload reactions whenever the message list changes.
+    ref.listen<AsyncValue<ChatMessagesState>>(
+        chatMessagesProvider(widget.contactMasterPub), (prev, next) {
+      if (prev?.valueOrNull?.messages != next.valueOrNull?.messages) {
+        _loadReactions();
+      }
+    });
+
     final items = buildMessageList(
       messages: msgState.messages,
       myPub58: myPub58,
@@ -1089,6 +1172,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ? _searchHitIds[_currentHitIdx]
           : null,
       messageKeys: _searchMode && _hitKeys.isNotEmpty ? _hitKeys : null,
+      reactionsByMid: _reactions.isEmpty ? null : _reactions,
+      onReactionTap: _toggleReaction,
     );
 
     return Scaffold(

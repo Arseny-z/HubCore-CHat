@@ -11,7 +11,8 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../application/events/app_event_bus.dart';
-import '../../application/events/app_events.dart' show FileTransferProgressEvent, MessageRetryUpdatedEvent, GroupAdminChangedEvent, GroupAdminTransferDeclinedEvent, GroupDeletedEvent, GroupJoinedEvent;
+import '../../application/events/app_events.dart' show FileTransferProgressEvent, MessageRetryUpdatedEvent, GroupAdminChangedEvent, GroupAdminTransferDeclinedEvent, GroupDeletedEvent, GroupJoinedEvent, MessageReactionEvent;
+import '../../storage/dao/message_reactions_dao.dart';
 import '../../domain/entities/group.dart' show GroupRole, GroupPermissions;
 import '../../crypto/file_encryption.dart';
 import '../../domain/entities/envelope.dart';
@@ -60,7 +61,9 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
   StreamSubscription<MessageRetryUpdatedEvent>? _retrySub;
   StreamSubscription<GroupDeletedEvent>? _deletedGroupSub;
   StreamSubscription<GroupAdminChangedEvent>? _adminChangedSub;
+  StreamSubscription<MessageReactionEvent>? _reactionSub;
   final Map<String, (int, int)> _queueAttempts = {};
+  Map<String, List<MessageReaction>> _reactions = {};
 
   // In-chat search state
   bool _searchMode = false;
@@ -101,12 +104,78 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     _retrySub?.cancel();
     _deletedGroupSub?.cancel();
     _adminChangedSub?.cancel();
+    _reactionSub?.cancel();
     _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _ctrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadReactions() async {
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+    final ids = _messages
+        .map((m) => m.messageId)
+        .whereType<String>()
+        .toList();
+    final map = await storage.messageReactions.forMessageIds(ids);
+    if (mounted) setState(() => _reactions = map);
+  }
+
+  Future<void> _toggleReaction(Message msg, String emoji) async {
+    if (msg.messageId == null) return;
+    final identity = ref.read(identityNotifierProvider);
+    if (identity == null) return;
+    final myPub = PubkeyCodec.encode(identity.masterPublicKey);
+
+    final storage = ref.read(storageProvider);
+    if (!storage.isOpen) return;
+
+    final existing = await storage.messageReactions.forMessage(msg.messageId!);
+    final mine = existing.where((r) => r.reactorPub == myPub).toList();
+    final removingSame = mine.length == 1 && mine.first.emoji == emoji;
+    final action = removingSame ? 'remove' : 'add';
+
+    if (removingSame) {
+      await storage.messageReactions.clear(msg.messageId!, myPub);
+    } else {
+      await storage.messageReactions.set(MessageReaction(
+        messageId:  msg.messageId!,
+        reactorPub: myPub,
+        emoji:      emoji,
+        createdAt:  DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      ));
+    }
+
+    // Fan-out to all members.
+    final messaging = ref.read(messagingServiceProvider);
+    final transport = ref.read(compositeTransportProvider);
+    if (messaging != null) {
+      final memberPubs = await storage.groups.memberPubs(widget.groupId);
+      final plain = Uint8List.fromList(utf8.encode(jsonEncode({
+        'type':     'msg_reaction',
+        'mid':      msg.messageId,
+        'emoji':    emoji,
+        'action':   action,
+        'group_id': widget.groupId,
+      })));
+      for (final pub in memberPubs) {
+        if (pub == myPub) continue;
+        try {
+          final env = await messaging.encryptBox(pub, plain);
+          final c = await storage.contacts.findByMasterPub(pub);
+          await transport.sendEnvelope(env,
+              transportAddresses: c?.transportAddresses);
+        } catch (_) {}
+      }
+    }
+
+    final bus = ref.read(eventBusProvider);
+    bus.emit(MessageReactionEvent(
+        messageId: msg.messageId!,
+        conversationId: widget.groupId));
   }
 
   // ── In-chat search ────────────────────────────────────────────────────────
@@ -284,6 +353,13 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     _adminChangedSub = bus.on<GroupAdminChangedEvent>().listen((event) {
       if (event.groupId == widget.groupId && mounted) _load();
     });
+
+    // Refresh reactions on incoming reaction event for this group.
+    _reactionSub = bus.on<MessageReactionEvent>().listen((event) {
+      if (event.conversationId == widget.groupId && mounted) {
+        _loadReactions();
+      }
+    });
   }
 
   Future<void> _load() async {
@@ -336,6 +412,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         _isMember = isMember;
         _myRole   = myRole;
       });
+      _loadReactions();
     }
   }
 
@@ -1014,6 +1091,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
           ? _searchHitIds[_currentHitIdx]
           : null,
       messageKeys: _searchMode && _hitKeys.isNotEmpty ? _hitKeys : null,
+      reactionsByMid: _reactions.isEmpty ? null : _reactions,
+      onReactionTap: _toggleReaction,
     );
 
     return Scaffold(

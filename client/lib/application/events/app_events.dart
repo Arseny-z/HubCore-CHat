@@ -56,6 +56,19 @@ class MessagesDeletedEvent extends AppEvent {
   const MessagesDeletedEvent({required this.conversationIds});
 }
 
+/// A reaction was added or removed on a message — UI should refresh that
+/// bubble's reaction strip.
+class MessageReactionEvent extends AppEvent {
+  final String messageId;
+  /// Conversation the reacted message lives in (DM contact pub or groupId).
+  final String conversationId;
+
+  const MessageReactionEvent({
+    required this.messageId,
+    required this.conversationId,
+  });
+}
+
 // ── Contacts ─────────────────────────────────────────────────────────────────
 
 /// A contact_hello was received — contact may have been created or updated.

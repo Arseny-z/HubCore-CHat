@@ -7,7 +7,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 /// Call [close] / [lock] when the app goes to background.
 class AppDatabase {
   static const _dbName = 'hubcore.db';
-  static const _schemaVersion = 24;
+  static const _schemaVersion = 25;
 
   Database? _db;
 
@@ -192,6 +192,7 @@ class AppDatabase {
     await _createEphemeralKeys(db);
     await _createNotifications(db);
     await _createMultiDeviceTables(db);
+    await _createMessageReactions(db);
 
     // Default settings
     await db.execute(
@@ -366,6 +367,27 @@ class AppDatabase {
         'ALTER TABLE send_queue ADD COLUMN per_device_status TEXT',
       );
     }
+    if (oldVersion < 25) {
+      await _createMessageReactions(db);
+    }
+  }
+
+  static Future<void> _createMessageReactions(Database db) async {
+    // One reaction per (message_id, reactor_pub) — Telegram-style.
+    // Lookups are always by message_id, so we index it.
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS message_reactions (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id   TEXT    NOT NULL,
+        reactor_pub  TEXT    NOT NULL,
+        emoji        TEXT    NOT NULL,
+        created_at   INTEGER NOT NULL,
+        UNIQUE(message_id, reactor_pub)
+      )
+    ''');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_reactions_message '
+      'ON message_reactions(message_id)');
   }
 
   static Future<void> _createNotifications(Database db) async {

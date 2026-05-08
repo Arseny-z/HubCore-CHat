@@ -135,6 +135,7 @@ class _ContactProfileScreenState
     if (confirmed != true || !mounted) return;
     final storage = ref.read(storageProvider);
     await storage.files.deleteForConversation(widget.masterPub);
+    await storage.messageReactions.deleteForConversation(widget.masterPub);
     await storage.messages.deleteConversation(widget.masterPub);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

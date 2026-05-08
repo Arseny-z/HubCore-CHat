@@ -28,6 +28,7 @@ import 'crypto_providers.dart'
         sessionManagerProvider,
         multiSessionManagerProvider,
         sodiumProvider;
+import '../../storage/dao/message_reactions_dao.dart';
 import '../../storage/dao/notifications_dao.dart';
 import 'storage_providers.dart'
     show storageProvider, eventBusProvider, pendingPairingQrProvider;
@@ -107,6 +108,19 @@ final receiveEnvelopeUseCaseProvider = Provider<ReceiveEnvelopeUseCase?>((ref) {
         fromPub: fromPub,
         createdAt: now,
       ));
+    },
+    onReaction: (mid, reactorPub, emoji, action, _) async {
+      if (!storage.isOpen) return;
+      if (action == 'add') {
+        await storage.messageReactions.set(MessageReaction(
+          messageId:  mid,
+          reactorPub: reactorPub,
+          emoji:      emoji,
+          createdAt:  DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        ));
+      } else {
+        await storage.messageReactions.clear(mid, reactorPub);
+      }
     },
     processReceipt: ProcessReceiptUseCase(
       messages: storage.messageRepo,

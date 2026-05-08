@@ -89,6 +89,16 @@ class ReceiveEnvelopeUseCase {
   /// Called to save a notification (e.g. group_invite) to the DB.
   final Future<void> Function(String type, String payload, String fromPub)? onSaveNotification;
 
+  /// Called when a msg_reaction envelope arrives. Action is 'add' or 'remove'.
+  /// For DM: conversationId = senderPub; for group: conversationId = group_id.
+  final Future<void> Function(
+    String messageId,
+    String reactorPub,
+    String emoji,
+    String action,
+    String conversationId,
+  )? onReaction;
+
   /// Multi-device session manager for v=2 envelope decryption.
   final MultiSessionManager? multiSessionManager;
 
@@ -158,6 +168,7 @@ class ReceiveEnvelopeUseCase {
     this.onGroupRemoveMember,
     this.onGroupDelete,
     this.onSaveNotification,
+    this.onReaction,
     this.onSendPublicHello,
     this.multiSessionManager,
     this.onReceiveMultiDevice,
@@ -572,6 +583,32 @@ class ReceiveEnvelopeUseCase {
             await onGroupDelete?.call(groupId);
             _bus.emit(GroupDeletedEvent(groupId: groupId));
           }
+          return null;
+        }
+
+        // msg_reaction — add or remove a reaction on a message
+        if (boxJson['type'] == 'msg_reaction') {
+          final mid     = boxJson['mid']      as String?;
+          final emoji   = boxJson['emoji']    as String?;
+          final action  = boxJson['action']   as String?;
+          final groupId = boxJson['group_id'] as String?;
+          if (mid == null || emoji == null ||
+              (action != 'add' && action != 'remove')) {
+            return null;
+          }
+          // For groups: drop reactions from non-members or banned users.
+          if (groupId != null) {
+            final role = await onGetMemberRole?.call(groupId, senderPub);
+            if (role == null || role == 'banned') {
+              AppLogger.w('ReceiveUC',
+                  'msg_reaction REJECTED: $senderPub not a member of $groupId');
+              return null;
+            }
+          }
+          final convId = groupId ?? senderPub;
+          await onReaction?.call(mid, senderPub, emoji, action!, convId);
+          _bus.emit(MessageReactionEvent(
+              messageId: mid, conversationId: convId));
           return null;
         }
       } catch (_) {

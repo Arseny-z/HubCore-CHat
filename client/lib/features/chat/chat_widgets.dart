@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../shared/providers/app_providers.dart' show Message, MessageStatus, ContentType;
+import '../../storage/dao/message_reactions_dao.dart' show MessageReaction;
 import '../../shared/utils/logger.dart';
 import 'video_circle_widgets.dart';
 import 'voice_message_widgets.dart';
@@ -18,6 +19,11 @@ import 'voice_message_widgets.dart';
 const _kBgOwn   = Color(0xFF2B5278); // Telegram "own" bubble
 const _kBgOther = Color(0xFF182533); // Telegram "other" bubble
 const _kBgDate  = Color(0x99182533); // date separator pill
+
+/// Fixed emoji set for message reactions (Telegram-style minimal palette).
+const List<String> kReactionEmojis = [
+  '👍', '❤️', '😂', '😮', '😢', '🔥', '🙏', '🎉',
+];
 const _kTick1   = Color(0xFF8EADC1); // sent/delivered tick
 const _kTick2   = Color(0xFF52B8EA); // read tick
 
@@ -65,6 +71,10 @@ List<Widget> buildMessageList({
   /// GlobalKeys for matched messages — used by caller to scroll-to-hit.
   /// Caller pre-allocates one key per match; passes id → key here.
   Map<int, GlobalKey>? messageKeys,
+  /// messageId (text) → list of reactions to render under that bubble.
+  Map<String, List<MessageReaction>>? reactionsByMid,
+  /// Called when user taps a reaction chip — toggle add/remove.
+  void Function(Message msg, String emoji)? onReactionTap,
 }) {
   final items = <Widget>[];
   DateTime? lastDay;
@@ -146,6 +156,13 @@ List<Widget> buildMessageList({
       onForward: onForward != null ? (m) => onForward(m) : null,
       searchQuery: searchQuery,
       isCurrentHit: msg.id != null && msg.id == currentHitMsgId,
+      reactions: (mid != null && reactionsByMid != null)
+          ? reactionsByMid[mid]
+          : null,
+      myPub58: myPub58,
+      onReactionTap: onReactionTap != null
+          ? (emoji) => onReactionTap(msg, emoji)
+          : null,
     ));
   }
 
@@ -230,6 +247,12 @@ class MessageBubble extends StatelessWidget {
   final String? searchQuery;
   /// True if this is the currently-focused search hit (extra emphasis).
   final bool isCurrentHit;
+  /// All reactions on this message (raw rows, one per reactor).
+  final List<MessageReaction>? reactions;
+  /// Caller's own master pubkey — used to highlight your own reaction.
+  final String? myPub58;
+  /// Tap handler for a reaction chip — toggle add/remove for that emoji.
+  final void Function(String emoji)? onReactionTap;
 
   const MessageBubble({
     super.key,
@@ -253,6 +276,9 @@ class MessageBubble extends StatelessWidget {
     this.onForward,
     this.searchQuery,
     this.isCurrentHit = false,
+    this.reactions,
+    this.myPub58,
+    this.onReactionTap,
   });
 
   @override
@@ -439,12 +465,30 @@ class MessageBubble extends StatelessWidget {
       ),
     );
 
-    if (onVisible == null) return bubble;
+    final hasReactions = reactions != null && reactions!.isNotEmpty;
+    final content = hasReactions
+        ? Column(
+            crossAxisAlignment: isMe
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              bubble,
+              _ReactionsRow(
+                reactions: reactions!,
+                isMe: isMe,
+                myPub58: myPub58,
+                onTap: onReactionTap,
+              ),
+            ],
+          )
+        : bubble;
+
+    if (onVisible == null) return content;
 
     // Audio and video mark themselves as read on play — skip VisibilityDetector.
     final mediaType = message.contentType;
     if (mediaType == ContentType.audio || mediaType == ContentType.video) {
-      return bubble;
+      return content;
     }
 
     return VisibilityDetector(
@@ -454,7 +498,7 @@ class MessageBubble extends StatelessWidget {
           onVisible!();
         }
       },
-      child: bubble,
+      child: content,
     );
   }
 
@@ -470,6 +514,30 @@ class MessageBubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
+            if (onReactionTap != null && message.messageId != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: kReactionEmojis.map((e) {
+                    return InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        Navigator.pop(context);
+                        onReactionTap!(e);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(e,
+                            style: const TextStyle(fontSize: 26)),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const Divider(height: 8, color: Colors.white12),
+            ],
             if (onReply != null && message.contentType == ContentType.text)
               ListTile(
                 leading: const Icon(Icons.reply, color: Colors.white70),
@@ -591,6 +659,85 @@ Widget _highlightedBody(String text, String? query) {
     start = idx + query.length;
   }
   return RichText(text: TextSpan(style: baseStyle, children: spans));
+}
+
+// ── Reactions row ─────────────────────────────────────────────────────────────
+
+class _ReactionsRow extends StatelessWidget {
+  final List<MessageReaction> reactions;
+  final bool isMe;
+  final String? myPub58;
+  final void Function(String emoji)? onTap;
+
+  const _ReactionsRow({
+    required this.reactions,
+    required this.isMe,
+    required this.myPub58,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Aggregate emoji → (count, mineSelected).
+    final agg = <String, (int, bool)>{};
+    for (final r in reactions) {
+      final prev = agg[r.emoji] ?? (0, false);
+      final mine = prev.$2 || (myPub58 != null && r.reactorPub == myPub58);
+      agg[r.emoji] = (prev.$1 + 1, mine);
+    }
+    final entries = agg.entries.toList()
+      ..sort((a, b) => b.value.$1.compareTo(a.value.$1));
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 2,
+        bottom: 4,
+        left: isMe ? 0 : 12,
+        right: isMe ? 12 : 0,
+      ),
+      child: Wrap(
+        alignment: isMe ? WrapAlignment.end : WrapAlignment.start,
+        spacing: 4,
+        runSpacing: 4,
+        children: entries.map((e) {
+          final emoji = e.key;
+          final (count, mine) = e.value;
+          return GestureDetector(
+            onTap: onTap != null ? () => onTap!(emoji) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: mine
+                    ? const Color(0xFF2AABEE).withAlpha(60)
+                    : Colors.white12,
+                borderRadius: BorderRadius.circular(12),
+                border: mine
+                    ? Border.all(color: const Color(0xFF2AABEE), width: 1)
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(emoji, style: const TextStyle(fontSize: 13)),
+                  if (count > 1) ...[
+                    const SizedBox(width: 3),
+                    Text('$count',
+                        style: TextStyle(
+                          color: mine
+                              ? const Color(0xFF2AABEE)
+                              : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        )),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
 }
 
 // ── Status tick ───────────────────────────────────────────────────────────────
