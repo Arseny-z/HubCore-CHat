@@ -22,12 +22,12 @@
 
 ## P2 — Core UX
 
-- [ ] P2-1 Unread badge in chat list — no way to know new messages exist
-- [ ] P2-2 Reply to message (DB migration + protocol + UI)
-- [ ] P2-3 Message history pagination — LIMIT/OFFSET in DAO, OOM risk on large chats
-- [ ] P2-4 ChatScreen refactor — 35 setState + 17 `_loadMessages` → `messagesStreamProvider`
-- [ ] P2-5 Contacts & Privacy — stranger/blocked/policy, "New conversations" section, block UI (~6.5 days)
-- [ ] P2-6 Profile privacy — public vs contacts profile, per-recipient profile selection (~3 days)
+- [x] P2-1 Unread badge in chat list — no way to know new messages exist
+- [x] P2-2 Reply to message (DB migration + protocol + UI)
+- [x] P2-3 Message history pagination — LIMIT/OFFSET in DAO, OOM risk on large chats
+- [x] P2-4 ChatScreen refactor — 35 setState + 17 `_loadMessages` → `messagesStreamProvider`
+- [x] P2-5 Contacts & Privacy — stranger/blocked/policy, "New conversations" section, block UI (~6.5 days)
+- [x] P2-6 Profile privacy — public vs contacts profile, per-recipient profile selection (~3 days)
 
 ## P3 — Multi-device (in progress)
 

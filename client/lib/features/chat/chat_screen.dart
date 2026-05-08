@@ -8,8 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 
-import '../../application/events/app_events.dart' show FileTransferProgressEvent, MessageRetryUpdatedEvent, ContactUpdatedEvent;
-
 import '../../application/events/app_event_bus.dart';
 import '../../shared/providers/app_providers.dart';
 import '../../shared/utils/l10n.dart';
@@ -17,6 +15,7 @@ import '../../shared/utils/logger.dart';
 import '../../shared/utils/pubkey_codec.dart';
 import '../../shared/widgets/contact_avatar.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
+import 'chat_messages_provider.dart';
 import 'chat_widgets.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -30,38 +29,28 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _ctrl        = TextEditingController();
   final _scrollCtrl  = ScrollController();
-  List<Message> _messages = [];
   Contact? _contact;
   bool _sending = false;
   String? _sendError;
   int? _ttlSeconds;        // null = no TTL for this conversation
   bool _showScrollBadge = false;
   int  _unreadCount     = 0;
-  /// messageId → (delivered, total) — loaded alongside messages.
-  Map<String, (int, int)> _deliveryCounts = {};
-  /// messageId → (attempts, maxAttempts) for pending/ack_pending messages.
-  Map<String, (int, int)> _queueAttempts = {};
 
   final Map<int, double> _fileProgress = {}; // messageId → progress
   final Map<int, String> _fileTransferIds = {}; // msgId → transferId (for cancellation)
   final Set<String> _readReceiptSent = {}; // messageId → already sent read receipt
   Message? _replyTo; // message being replied to
-  bool _hasMore = false; // more messages available above
-  bool _loadingMore = false; // currently loading older messages
 
   // EventBus subscriptions — cancelled in dispose().
+  // Messages/deleted/status/retry are owned by chatMessagesProvider.
   StreamSubscription<MessageReceivedEvent>? _msgSub;
-  StreamSubscription<MessagesDeletedEvent>? _deletedSub;
-  StreamSubscription<MessageStatusUpdatedEvent>? _statusSub;
   StreamSubscription<FileTransferProgressEvent>? _progressSub;
-  StreamSubscription<MessageRetryUpdatedEvent>? _retrySub;
   StreamSubscription<ContactUpdatedEvent>? _contactSub;
 
   @override
   void initState() {
     super.initState();
     _loadContact();
-    _loadMessages().then((_) => _sendReadReceipts());
     _loadTtl();
     _scrollCtrl.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -72,69 +61,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _subscribeToMessages() {
     final bus = ref.read(eventBusProvider);
 
+    // Bump unread badge when an incoming arrives while we're scrolled away
+    // from the bottom. The message list itself is owned by chatMessagesProvider.
     _msgSub = bus.on<MessageReceivedEvent>().listen((event) {
-      if (event.conversationId == widget.contactMasterPub && mounted) {
-        _loadMessages().then((_) {
-          if (_isAtBottom) _sendReadReceipts();
-        });
-        if (!_isAtBottom) {
-          setState(() => _unreadCount++);
-        }
+      if (event.conversationId != widget.contactMasterPub || !mounted) return;
+      if (!_isAtBottom) {
+        setState(() => _unreadCount++);
       }
     });
 
-    _deletedSub = bus.on<MessagesDeletedEvent>().listen((event) {
-      if (event.conversationIds.contains(widget.contactMasterPub) && mounted) {
-        _loadMessages();
-      }
-    });
-
-    _statusSub = bus.on<MessageStatusUpdatedEvent>().listen((event) {
-      if (!mounted) return;
-      setState(() {
-        final idx = _messages.indexWhere((m) => m.id == event.messageDbId);
-        if (idx >= 0) {
-          final old = _messages[idx];
-          _messages[idx] = Message(
-            id: old.id,
-            conversationId: old.conversationId,
-            isGroup: old.isGroup,
-            senderPub: old.senderPub,
-            body: old.body,
-            contentType: old.contentType,
-            sentAt: old.sentAt,
-            receivedAt: old.receivedAt,
-            status: event.status,
-            expiresAt: old.expiresAt,
-            messageId: old.messageId,
-          );
-        }
-      });
-      // Reload to update queueAttempts (counter disappears when delivered)
-      _loadMessages();
-    });
-
+    // In-flight file progress is UI-ephemeral state (not in DB), so we still
+    // own it locally. The "done" event also triggers the provider to refresh.
     _progressSub = bus.on<FileTransferProgressEvent>().listen((event) {
       if (!mounted) return;
-      setState(() {
-        if (event.done) {
-          _fileProgress.remove(event.messageId);
-          _loadMessages();
-        } else {
-          _fileProgress[event.messageId] = event.progress;
-        }
-      });
-    });
-
-    _retrySub = bus.on<MessageRetryUpdatedEvent>().listen((event) {
-      if (!mounted) return;
-      setState(() {
-        if (event.attempts < 0) {
-          _queueAttempts.remove(event.messageId);
-        } else {
-          _queueAttempts[event.messageId] = (event.attempts, event.maxAttempts);
-        }
-      });
+      if (event.done) {
+        setState(() => _fileProgress.remove(event.messageId));
+      } else {
+        setState(() => _fileProgress[event.messageId] = event.progress);
+      }
     });
 
     // Reload contact when last_seen or keys change (e.g. contact_hello received)
@@ -148,10 +92,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void dispose() {
     _msgSub?.cancel();
-    _deletedSub?.cancel();
-    _statusSub?.cancel();
     _progressSub?.cancel();
-    _retrySub?.cancel();
     _contactSub?.cancel();
     _ctrl.dispose();
     _scrollCtrl.removeListener(_onScroll);
@@ -171,8 +112,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _onScroll() {
     if (!_scrollCtrl.hasClients) return;
     // Load older messages when scrolled to top
-    if (_isAtTop && _hasMore && !_loadingMore) {
-      _loadMore();
+    if (_isAtTop) {
+      final st = ref.read(chatMessagesProvider(widget.contactMasterPub)).valueOrNull;
+      if (st != null && st.hasMore && !st.loadingMore) {
+        ref
+            .read(chatMessagesProvider(widget.contactMasterPub).notifier)
+            .loadMore(widget.contactMasterPub);
+      }
     }
     final atBottom = _isAtBottom;
     if (atBottom && _showScrollBadge) {
@@ -180,7 +126,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         _showScrollBadge = false;
         _unreadCount = 0;
       });
-      _sendReadReceipts();
     } else if (!atBottom && !_showScrollBadge) {
       setState(() => _showScrollBadge = true);
     }
@@ -343,76 +288,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (mounted) setState(() => _contact = c);
   }
 
-  static const _kPageSize = 50;
-
-  Future<void> _loadMessages() async {
-    final storage = ref.read(storageProvider);
-    if (!storage.isOpen) return;
-    final msgs = await storage.messages.forConversation(
-        widget.contactMasterPub, limit: _kPageSize);
-    if (!mounted) return;
-    final identity = ref.read(identityNotifierProvider);
-    final myPub58 = identity != null
-        ? PubkeyCodec.encode(identity.masterPublicKey)
-        : '';
-    final unread = msgs.where((m) =>
-        m.senderPub != myPub58 &&
-        m.status != MessageStatus.read).length;
-
-    // Load delivery counts for outbound messages that have receipts.
-    final counts = <String, (int, int)>{};
-    for (final m in msgs) {
-      if (m.senderPub == myPub58 && m.messageId != null) {
-        final c = await storage.messageReceipts.deliveryCount(m.messageId!);
-        if (c.$2 > 0) counts[m.messageId!] = c;
-      }
-    }
-
-    // Load queue attempts for pending messages.
-    final queueEntries = await storage.sendQueue.allPending();
-    final queueMap = <String, (int, int)>{};
-    for (final e in queueEntries) {
-      if (e.ackPending == 1 || e.attempts > 0) {
-        queueMap[e.messageId] = (e.attempts, e.maxAttempts);
-      }
-    }
-
-    setState(() {
-      _messages = msgs.reversed.toList();
-      _deliveryCounts = counts;
-      _queueAttempts = queueMap;
-      _hasMore = msgs.length >= _kPageSize;
-      if (_isAtBottom) _unreadCount = 0;
-      else _unreadCount = unread;
-    });
-  }
-
-  /// Load older messages (page up).
-  Future<void> _loadMore() async {
-    if (_loadingMore || !_hasMore) return;
-    final storage = ref.read(storageProvider);
-    if (!storage.isOpen) return;
-    // Oldest message currently shown
-    final oldestId = _messages.isNotEmpty ? _messages.first.id : null;
-    if (oldestId == null) return;
-
-    setState(() => _loadingMore = true);
-    try {
-      final older = await storage.messages.forConversation(
-        widget.contactMasterPub,
-        limit: _kPageSize,
-        beforeId: oldestId,
-      );
-      if (!mounted) return;
-      setState(() {
-        _messages = [...older.reversed.toList(), ..._messages];
-        _hasMore = older.length >= _kPageSize;
-        _loadingMore = false;
-      });
-    } finally {
-      if (mounted && _loadingMore) setState(() => _loadingMore = false);
-    }
-  }
+  /// Trigger a re-query of the message list. Used after locally-initiated
+  /// changes (sends, deletes) that bypass the AppEventBus reload triggers.
+  Future<void> _reloadMessages() => ref
+      .read(chatMessagesProvider(widget.contactMasterPub).notifier)
+      .reload(widget.contactMasterPub);
 
   /// Called when an incoming message bubble becomes visible on screen.
   /// Sends msg_read receipt and updates local status.
@@ -429,10 +309,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     if (msg.id != null) {
       await storage.messages.updateStatus(msg.id!, MessageStatus.read);
+      // Notify provider so the bubble repaints with the new status.
+      ref.read(eventBusProvider).emit(MessageStatusUpdatedEvent(
+            messageDbId: msg.id!,
+            status: MessageStatus.read,
+          ));
     }
     messaging.sendReadReceipt(msg.senderPub, mid);
     AppLogger.d('Chat', 'msg_read sent for mid=${mid.substring(0, 8)}… from ${msg.senderPub.substring(0, 8)}…');
-    if (mounted) await _loadMessages();
   }
 
   Future<void> _sendReadReceipts() async {
@@ -559,7 +443,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) setState(() => _sending = false);
     }
 
-    await _loadMessages();
+    await _reloadMessages();
     _scrollToBottom();
   }
 
@@ -644,7 +528,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) setState(() => _sending = false);
     }
 
-    await _loadMessages();
+    await _reloadMessages();
     _scrollToBottom();
   }
 
@@ -676,7 +560,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ttlSeconds: _ttlSeconds,
         onPlaceholderCreated: (msgId, tid) {
           _fileTransferIds[msgId] = tid;
-          if (mounted) { _loadMessages(); _scrollToBottom(); }
+          if (mounted) { _reloadMessages(); _scrollToBottom(); }
         },
       );
     } catch (e) {
@@ -685,7 +569,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) setState(() => _sending = false);
       try { await audioFile.delete(); } catch (_) {}
     }
-    await _loadMessages();
+    await _reloadMessages();
     _scrollToBottom();
   }
 
@@ -717,7 +601,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ttlSeconds: _ttlSeconds,
         onPlaceholderCreated: (msgId, tid) {
           _fileTransferIds[msgId] = tid;
-          if (mounted) { _loadMessages(); _scrollToBottom(); }
+          if (mounted) { _reloadMessages(); _scrollToBottom(); }
         },
       );
     } catch (e) {
@@ -726,7 +610,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (mounted) setState(() => _sending = false);
       try { await videoFile.delete(); } catch (_) {}
     }
-    await _loadMessages();
+    await _reloadMessages();
     _scrollToBottom();
   }
 
@@ -812,7 +696,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final queue = ref.read(queueServiceProvider);
     if (queue == null) return;
     await queue.deleteQueued(msg.messageId!, msg.id!);
-    await _loadMessages();
+    await _reloadMessages();
   }
 
   Future<void> _deleteMe(Message msg) async {
@@ -824,7 +708,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     final bus = ref.read(eventBusProvider);
     bus.emit(MessagesDeletedEvent(conversationIds: {widget.contactMasterPub}));
-    await _loadMessages();
+    await _reloadMessages();
   }
 
   Future<void> _cancelFileSend(Message msg) async {
@@ -865,7 +749,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
     final bus = ref.read(eventBusProvider);
     bus.emit(MessagesDeletedEvent(conversationIds: {widget.contactMasterPub}));
-    await _loadMessages();
+    await _reloadMessages();
   }
 
   Future<void> _showDeliveryDetails(Message msg) async {
@@ -1002,15 +886,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final lastSeenText = _formatLastSeen(_contact?.lastSeen);
 
+    final asyncMsgs =
+        ref.watch(chatMessagesProvider(widget.contactMasterPub));
+    final msgState = asyncMsgs.valueOrNull ?? const ChatMessagesState();
+    final isInitialLoading = asyncMsgs.isLoading && asyncMsgs.value == null;
+
     final items = buildMessageList(
-      messages: _messages,
+      messages: msgState.messages,
       myPub58: myPub58,
       isGroup: false,
       fileSvc: ref.read(fileServiceProvider),
       storage: ref.read(storageProvider),
       fileProgress: _fileProgress.isNotEmpty ? _fileProgress : null,
-      queueAttempts: _queueAttempts.isNotEmpty ? _queueAttempts : null,
-      deliveryCounts: _deliveryCounts,
+      queueAttempts:
+          msgState.queueAttempts.isNotEmpty ? msgState.queueAttempts : null,
+      deliveryCounts: msgState.deliveryCounts,
       onDeliveryTap: _showDeliveryDetails,
       onDeleteQueued: _deleteQueued,
       onDeleteMe: (msg) => msg.id != null && _fileTransferIds.containsKey(msg.id)
@@ -1100,40 +990,44 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               children: [
                 RefreshIndicator(
                   onRefresh: () async {
-                    await _loadMessages();
+                    await _reloadMessages();
                   },
-                  child: items.isEmpty
-                      ? ListView(children: [
-                          SizedBox(
-                            height: 300,
-                            child: Center(
-                              child: Text(
-                                context.l10n.noMessagesHint,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    color: Colors.white38, fontSize: 15),
-                              ),
-                            ),
-                          ),
-                        ])
-                      : ListView(
-                          controller: _scrollCtrl,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 0, vertical: 8),
-                          children: [
-                            if (_loadingMore)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
+                  child: isInitialLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : items.isEmpty
+                          ? ListView(children: [
+                              SizedBox(
+                                height: 300,
                                 child: Center(
-                                  child: SizedBox(
-                                    width: 20, height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: Text(
+                                    context.l10n.noMessagesHint,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                        color: Colors.white38, fontSize: 15),
                                   ),
                                 ),
                               ),
-                            ...items,
-                          ],
-                        ),
+                            ])
+                          : ListView(
+                              controller: _scrollCtrl,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 0, vertical: 8),
+                              children: [
+                                if (msgState.loadingMore)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      ),
+                                    ),
+                                  ),
+                                ...items,
+                              ],
+                            ),
                 ),
                 if (_showScrollBadge)
                   Positioned(
