@@ -41,10 +41,10 @@
 
 ## P4 — Groups
 
-- [ ] P4-1 Group message statuses — receipt tracking per member, N/M counter in UI
-- [ ] P4-2 Files in group chats (2 MB limit, fan-out to all members)
-- [ ] P4-3 Group management — add/remove member, rename, key rotation on kick
-- [ ] P4-4 Group roles — admin/write/read/banned, max 3 admins (~5.5 days)
+- [x] P4-1 Group message statuses — receipt tracking per member, N/M counter in UI
+- [x] P4-2 Files in group chats (2 MB limit, fan-out to all members)
+- [x] P4-3 Group management — add/remove member, rename, key rotation on kick, delete group, admin transfer
+- [x] P4-4 Group roles — admin/write/read/banned, max 3 admins, owner immutable
 
 ## P5 — Reticulum (critical path)
 
