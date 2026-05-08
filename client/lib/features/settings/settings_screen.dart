@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../services/shake_detector_service.dart';
 import '../../shared/providers/app_providers.dart';
+import '../../shared/providers/panic_providers.dart';
 import '../../shared/providers/yggdrasil_controller.dart';
 import '../../shared/utils/l10n.dart';
 import '../../shared/widgets/hubcore_app_bar.dart';
@@ -157,6 +159,7 @@ class SettingsScreen extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _manageDuressPin(context, ref),
           ),
+          const _PanicGestureTile(),
           ListTile(
             title: Text(
               context.l10n.wipeAllData,
@@ -1156,6 +1159,97 @@ class _IncomingPolicyTileState extends ConsumerState<_IncomingPolicyTile> {
               dense: true,
               onChanged: (v) { if (v != null) _set(v); },
             )),
+      ],
+    );
+  }
+}
+
+// ── Panic gesture tile ────────────────────────────────────────────────────────
+
+class _PanicGestureTile extends ConsumerWidget {
+  const _PanicGestureTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cfg = ref.watch(panicConfigProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          title: Text(context.l10n.panicGesture),
+          subtitle: Text(context.l10n.panicGestureDesc),
+          secondary: const Icon(Icons.vibration_outlined),
+          value: cfg.enabled,
+          onChanged: (v) =>
+              ref.read(panicConfigProvider.notifier).setEnabled(v),
+        ),
+        if (cfg.enabled) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(context.l10n.panicMode,
+                style: const TextStyle(fontSize: 14, color: Colors.white70)),
+          ),
+          RadioListTile<PanicMode>(
+            value: PanicMode.soft,
+            groupValue: cfg.mode,
+            title: Text(context.l10n.panicModeSoft),
+            dense: true,
+            onChanged: (v) {
+              if (v != null) {
+                ref.read(panicConfigProvider.notifier).setMode(v);
+              }
+            },
+          ),
+          RadioListTile<PanicMode>(
+            value: PanicMode.hard,
+            groupValue: cfg.mode,
+            title: Text(context.l10n.panicModeHard),
+            dense: true,
+            onChanged: (v) {
+              if (v != null) {
+                ref.read(panicConfigProvider.notifier).setMode(v);
+              }
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Text(context.l10n.panicSensitivity,
+                style: const TextStyle(fontSize: 14, color: Colors.white70)),
+          ),
+          RadioListTile<ShakeSensitivity>(
+            value: ShakeSensitivity.low,
+            groupValue: cfg.sensitivity,
+            title: Text(context.l10n.panicSensitivityLow),
+            dense: true,
+            onChanged: (v) {
+              if (v != null) {
+                ref.read(panicConfigProvider.notifier).setSensitivity(v);
+              }
+            },
+          ),
+          RadioListTile<ShakeSensitivity>(
+            value: ShakeSensitivity.medium,
+            groupValue: cfg.sensitivity,
+            title: Text(context.l10n.panicSensitivityMedium),
+            dense: true,
+            onChanged: (v) {
+              if (v != null) {
+                ref.read(panicConfigProvider.notifier).setSensitivity(v);
+              }
+            },
+          ),
+          RadioListTile<ShakeSensitivity>(
+            value: ShakeSensitivity.high,
+            groupValue: cfg.sensitivity,
+            title: Text(context.l10n.panicSensitivityHigh),
+            dense: true,
+            onChanged: (v) {
+              if (v != null) {
+                ref.read(panicConfigProvider.notifier).setSensitivity(v);
+              }
+            },
+          ),
+        ],
       ],
     );
   }

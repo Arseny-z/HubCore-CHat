@@ -57,7 +57,7 @@
 ## P6 — Polish
 
 - [x] P6-1 Notification on contact key change
-- [ ] P6-2 Panic button — shake gesture → wipe
+- [x] P6-2 Panic button — shake gesture → wipe (Soft countdown / Hard instant, low/medium/high sensitivity)
 - [ ] P6-3 Message search
 - [ ] P6-4 Message reactions
 - [ ] P6-5 Embed public Yggdrasil peer list in APK

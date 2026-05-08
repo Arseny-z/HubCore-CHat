@@ -420,5 +420,17 @@
   },
   "verifyContactQR": "Проверить QR",
   "trustNewKey": "Доверять",
-  "keyTrusted": "Ключ отмечен как доверенный"
+  "keyTrusted": "Ключ отмечен как доверенный",
+
+  "panicGesture": "Жест паники",
+  "panicGestureDesc": "Резко тряхните телефон 3 раза, чтобы стереть все данные",
+  "panicMode": "Режим паники",
+  "panicModeSoft": "Мягкий (отсчёт 3 сек, отмена касанием)",
+  "panicModeHard": "Жёсткий (мгновенно, без отмены)",
+  "panicSensitivity": "Чувствительность тряски",
+  "panicSensitivityLow": "Низкая (только сильные встряски)",
+  "panicSensitivityMedium": "Средняя (рекомендуется)",
+  "panicSensitivityHigh": "Высокая (лёгкие встряски — риск ложных срабатываний)",
+  "panicWipeImminent": "Стирание всех данных",
+  "panicTapToCancel": "Коснитесь экрана, чтобы отменить"
 }

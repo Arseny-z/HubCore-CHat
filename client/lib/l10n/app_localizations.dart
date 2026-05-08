@@ -1709,7 +1709,7 @@ abstract class AppLocalizations {
   /// No description provided for @keyChangeBanner.
   ///
   /// In en, this message translates to:
-  /// **'Contact's security key changed — verify before trusting'**
+  /// **'Contact\'s security key changed — verify before trusting'**
   String get keyChangeBanner;
 
   /// No description provided for @keyChangeTitle.
@@ -1741,6 +1741,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Key marked as trusted'**
   String get keyTrusted;
+
+  /// No description provided for @panicGesture.
+  ///
+  /// In en, this message translates to:
+  /// **'Panic gesture'**
+  String get panicGesture;
+
+  /// No description provided for @panicGestureDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Shake the phone hard 3 times to wipe all data'**
+  String get panicGestureDesc;
+
+  /// No description provided for @panicMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Panic mode'**
+  String get panicMode;
+
+  /// No description provided for @panicModeSoft.
+  ///
+  /// In en, this message translates to:
+  /// **'Soft (3-sec countdown, tap to cancel)'**
+  String get panicModeSoft;
+
+  /// No description provided for @panicModeHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard (instant, no cancel)'**
+  String get panicModeHard;
+
+  /// No description provided for @panicSensitivity.
+  ///
+  /// In en, this message translates to:
+  /// **'Shake sensitivity'**
+  String get panicSensitivity;
+
+  /// No description provided for @panicSensitivityLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low (firm shakes only)'**
+  String get panicSensitivityLow;
+
+  /// No description provided for @panicSensitivityMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium (recommended)'**
+  String get panicSensitivityMedium;
+
+  /// No description provided for @panicSensitivityHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High (light shakes — risk of false positives)'**
+  String get panicSensitivityHigh;
+
+  /// No description provided for @panicWipeImminent.
+  ///
+  /// In en, this message translates to:
+  /// **'Wiping all data'**
+  String get panicWipeImminent;
+
+  /// No description provided for @panicTapToCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap anywhere to cancel'**
+  String get panicTapToCancel;
 }
 
 class _AppLocalizationsDelegate

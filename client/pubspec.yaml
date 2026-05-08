@@ -77,6 +77,8 @@ dependencies:
   # Notifications
   flutter_local_notifications: ^18.0.0
 
+  # Sensors (panic gesture: shake → wipe)
+  sensors_plus: ^6.0.0
 
   # State management
   flutter_riverpod: ^2.6.1

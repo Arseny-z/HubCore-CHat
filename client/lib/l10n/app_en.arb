@@ -420,5 +420,17 @@
   },
   "verifyContactQR": "Verify QR",
   "trustNewKey": "Trust",
-  "keyTrusted": "Key marked as trusted"
+  "keyTrusted": "Key marked as trusted",
+
+  "panicGesture": "Panic gesture",
+  "panicGestureDesc": "Shake the phone hard 3 times to wipe all data",
+  "panicMode": "Panic mode",
+  "panicModeSoft": "Soft (3-sec countdown, tap to cancel)",
+  "panicModeHard": "Hard (instant, no cancel)",
+  "panicSensitivity": "Shake sensitivity",
+  "panicSensitivityLow": "Low (firm shakes only)",
+  "panicSensitivityMedium": "Medium (recommended)",
+  "panicSensitivityHigh": "High (light shakes — risk of false positives)",
+  "panicWipeImminent": "Wiping all data",
+  "panicTapToCancel": "Tap anywhere to cancel"
 }

@@ -18,6 +18,7 @@ import 'features/chat/chat_screen.dart';
 import 'features/groups/create_group_screen.dart';
 import 'features/groups/group_chat_screen.dart';
 import 'features/groups/group_settings_screen.dart';
+import 'features/settings/panic_overlay.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/main/search_screen.dart';
 import 'features/notifications/notifications_screen.dart';
@@ -28,6 +29,7 @@ import 'features/settings/pair_device_screen.dart';
 import 'features/onboarding/scan_pairing_screen.dart';
 import 'features/settings/network_settings_screen.dart';
 import 'shared/providers/app_providers.dart';
+import 'shared/providers/panic_providers.dart';
 
 /// Global key for showing Snackbars from non-widget code (event listeners).
 final scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -155,6 +157,12 @@ class _AppLifecycleGuardState extends ConsumerState<_AppLifecycleGuard>
   DateTime? _pausedAt;
   StreamSubscription<ErrorEvent>? _errorSub;
 
+  // Panic gesture state
+  StreamSubscription<void>? _shakeSub;
+  Timer? _unlockPollTimer;
+  bool _panicConfigLoaded = false;
+  bool _showPanicOverlay = false;
+
   @override
   void initState() {
     super.initState();
@@ -162,13 +170,64 @@ class _AppLifecycleGuardState extends ConsumerState<_AppLifecycleGuard>
     // Enable FLAG_SECURE: prevent screenshots and screen recording (Android).
     // const MethodChannel('hubcore/security').invokeMethod('setSecureFlag', true);
     _errorSub = ref.read(eventBusProvider).on<ErrorEvent>().listen(_onErrorEvent);
+    _shakeSub = ref.read(shakeDetectorProvider).shakes.listen((_) => _onShake());
+    // Poll until DB unlocks, then load panic config.
+    _unlockPollTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_panicConfigLoaded) { t.cancel(); return; }
+      if (ref.read(storageProvider).isOpen) {
+        _panicConfigLoaded = true;
+        t.cancel();
+        ref.read(panicConfigProvider.notifier).load().then((_) {
+          _syncDetectorState();
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _errorSub?.cancel();
+    _shakeSub?.cancel();
+    _unlockPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _syncDetectorState() {
+    if (!mounted) return;
+    final cfg     = ref.read(panicConfigProvider);
+    final storage = ref.read(storageProvider);
+    final svc     = ref.read(shakeDetectorProvider);
+    final shouldRun = cfg.enabled && storage.isOpen && _pausedAt == null;
+    svc.sensitivity = cfg.sensitivity;
+    if (shouldRun && !svc.isRunning) {
+      svc.start();
+    } else if (!shouldRun && svc.isRunning) {
+      svc.stop();
+    }
+  }
+
+  void _onShake() {
+    if (!mounted) return;
+    final cfg = ref.read(panicConfigProvider);
+    if (!cfg.enabled) return;
+    if (cfg.mode == PanicMode.hard) {
+      _executePanicWipe();
+    } else {
+      setState(() => _showPanicOverlay = true);
+    }
+  }
+
+  Future<void> _executePanicWipe() async {
+    try {
+      await ref.read(shakeDetectorProvider).stop();
+    } catch (_) {}
+    try {
+      await ref.read(wipeServiceProvider).wipe();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _showPanicOverlay = false);
+    _router.go('/onboarding');
   }
 
   void _onErrorEvent(ErrorEvent e) {
@@ -203,12 +262,14 @@ class _AppLifecycleGuardState extends ConsumerState<_AppLifecycleGuard>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
       _pausedAt = DateTime.now();
+      _syncDetectorState();
     } else if (state == AppLifecycleState.resumed) {
       final paused = _pausedAt;
       if (paused != null && DateTime.now().difference(paused) >= _lockDelay) {
         _lock();
       }
       _pausedAt = null;
+      _syncDetectorState();
     } else if (state == AppLifecycleState.detached) {
       _lock();
     }
@@ -228,11 +289,38 @@ class _AppLifecycleGuardState extends ConsumerState<_AppLifecycleGuard>
       return;
     }
     await lockManager.lock();
+    // Detector should not run while DB is locked.
+    try { await ref.read(shakeDetectorProvider).stop(); } catch (_) {}
+    _panicConfigLoaded = false;
+    _unlockPollTimer?.cancel();
+    _unlockPollTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_panicConfigLoaded) { t.cancel(); return; }
+      if (ref.read(storageProvider).isOpen) {
+        _panicConfigLoaded = true;
+        t.cancel();
+        ref.read(panicConfigProvider.notifier).load().then((_) {
+          _syncDetectorState();
+        });
+      }
+    });
     if (mounted) _router.go('/lock');
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // Re-sync detector when settings change (toggle/sensitivity).
+    ref.listen<PanicConfig>(panicConfigProvider, (_, __) => _syncDetectorState());
+    return Stack(
+      children: [
+        widget.child,
+        if (_showPanicOverlay)
+          PanicCountdownOverlay(
+            onCancel: () => setState(() => _showPanicOverlay = false),
+            onWipe:   _executePanicWipe,
+          ),
+      ],
+    );
+  }
 }
 
 /// Routes to the correct starting screen based on app state:

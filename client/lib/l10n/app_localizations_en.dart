@@ -903,17 +903,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get errorReticulumStartFailed => 'Reticulum failed to start';
 
   @override
-  String get errorSessionCorrupted => 'Session corrupted — will renegotiate on next message';
+  String get errorSessionCorrupted =>
+      'Session corrupted — will renegotiate on next message';
 
   @override
-  String get keyChangeBanner => 'Contact\'s security key changed — verify before trusting';
+  String get keyChangeBanner =>
+      'Contact\'s security key changed — verify before trusting';
 
   @override
   String get keyChangeTitle => 'Security key changed';
 
   @override
-  String keyChangeDescription(String name) =>
-      '$name may have reinstalled the app, or the contact may be compromised. Verify the new QR code before trusting.';
+  String keyChangeDescription(String name) {
+    return '$name may have reinstalled the app, or the contact may be compromised. Verify the new QR code before trusting.';
+  }
 
   @override
   String get verifyContactQR => 'Verify QR';
@@ -923,4 +926,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get keyTrusted => 'Key marked as trusted';
+
+  @override
+  String get panicGesture => 'Panic gesture';
+
+  @override
+  String get panicGestureDesc =>
+      'Shake the phone hard 3 times to wipe all data';
+
+  @override
+  String get panicMode => 'Panic mode';
+
+  @override
+  String get panicModeSoft => 'Soft (3-sec countdown, tap to cancel)';
+
+  @override
+  String get panicModeHard => 'Hard (instant, no cancel)';
+
+  @override
+  String get panicSensitivity => 'Shake sensitivity';
+
+  @override
+  String get panicSensitivityLow => 'Low (firm shakes only)';
+
+  @override
+  String get panicSensitivityMedium => 'Medium (recommended)';
+
+  @override
+  String get panicSensitivityHigh =>
+      'High (light shakes — risk of false positives)';
+
+  @override
+  String get panicWipeImminent => 'Wiping all data';
+
+  @override
+  String get panicTapToCancel => 'Tap anywhere to cancel';
 }

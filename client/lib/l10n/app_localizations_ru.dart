@@ -915,17 +915,20 @@ class AppLocalizationsRu extends AppLocalizations {
   String get errorReticulumStartFailed => 'Не удалось запустить Reticulum';
 
   @override
-  String get errorSessionCorrupted => 'Сессия повреждена — будет восстановлена при следующем сообщении';
+  String get errorSessionCorrupted =>
+      'Сессия повреждена — будет восстановлена при следующем сообщении';
 
   @override
-  String get keyChangeBanner => 'Ключ безопасности контакта изменился — подтвердите перед доверием';
+  String get keyChangeBanner =>
+      'Ключ безопасности контакта изменился — подтвердите перед доверием';
 
   @override
   String get keyChangeTitle => 'Ключ безопасности изменился';
 
   @override
-  String keyChangeDescription(String name) =>
-      '$name мог(ла) переустановить приложение или контакт может быть скомпрометирован. Подтвердите новый QR-код перед доверием.';
+  String keyChangeDescription(String name) {
+    return '$name мог(ла) переустановить приложение или контакт может быть скомпрометирован. Подтвердите новый QR-код перед доверием.';
+  }
 
   @override
   String get verifyContactQR => 'Проверить QR';
@@ -935,4 +938,39 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get keyTrusted => 'Ключ отмечен как доверенный';
+
+  @override
+  String get panicGesture => 'Жест паники';
+
+  @override
+  String get panicGestureDesc =>
+      'Резко тряхните телефон 3 раза, чтобы стереть все данные';
+
+  @override
+  String get panicMode => 'Режим паники';
+
+  @override
+  String get panicModeSoft => 'Мягкий (отсчёт 3 сек, отмена касанием)';
+
+  @override
+  String get panicModeHard => 'Жёсткий (мгновенно, без отмены)';
+
+  @override
+  String get panicSensitivity => 'Чувствительность тряски';
+
+  @override
+  String get panicSensitivityLow => 'Низкая (только сильные встряски)';
+
+  @override
+  String get panicSensitivityMedium => 'Средняя (рекомендуется)';
+
+  @override
+  String get panicSensitivityHigh =>
+      'Высокая (лёгкие встряски — риск ложных срабатываний)';
+
+  @override
+  String get panicWipeImminent => 'Стирание всех данных';
+
+  @override
+  String get panicTapToCancel => 'Коснитесь экрана, чтобы отменить';
 }
