@@ -54,6 +54,7 @@ final receiveEnvelopeUseCaseProvider = Provider<ReceiveEnvelopeUseCase?>((ref) {
     messages: storage.messageRepo,
     bus:      bus,
     myPub58:  myPub58,
+    myDeviceId: identity.deviceId,
     readTtl:  (convId) async {
       final v = await storage.settings.get('ttl_seconds:$convId');
       return v != null ? int.tryParse(v) : null;
@@ -263,6 +264,9 @@ final messageRouterProvider = Provider<MessageRouter?>((ref) {
   pairingSvc?.myMasterPublicKey = identity.masterPublicKey;
   // After profile_sync applied on this device, re-broadcast to contacts.
   bus.on<ProfileSyncedEvent>().listen((_) => router.broadcastHello());
+  // After signing key rotation, push the new signingPub to all contacts via
+  // contact_hello. Without this they reject our next DM as bad-signature.
+  bus.on<SigningKeyRotatedEvent>().listen((_) => router.broadcastHello());
   router.start();
 
   // Send pending pairing handshake if Device B scanned a QR before DB was open.

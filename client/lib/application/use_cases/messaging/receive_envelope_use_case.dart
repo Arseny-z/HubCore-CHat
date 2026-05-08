@@ -30,6 +30,9 @@ class ReceiveEnvelopeUseCase {
   final MessageRepository _messages;
   final AppEventBus _bus;
   final String _myPub58;
+  /// Own device id, included in outgoing receipts so the recipient can mark
+  /// the matching slot in send_queue.per_device_status.
+  final String _myDeviceId;
 
   /// Reads local TTL setting for a conversation (fallback for old clients).
   final Future<int?> Function(String conversationId) _readTtl;
@@ -140,6 +143,7 @@ class ReceiveEnvelopeUseCase {
     required AppEventBus bus,
     required Future<int?> Function(String) readTtl,
     required String myPub58,
+    required String myDeviceId,
     this.onSendRaw,
     this.onContactHello,
     this.onCertUpdate,
@@ -175,6 +179,7 @@ class ReceiveEnvelopeUseCase {
         _messages = messages,
         _bus = bus,
         _myPub58 = myPub58,
+        _myDeviceId = myDeviceId,
         _readTtl = readTtl;
 
   /// Process [envelope] and return the plaintext if it was a regular DM,
@@ -709,7 +714,11 @@ class ReceiveEnvelopeUseCase {
         if (mid != null) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           await processReceipt?.processDeliveryReceipt(
-            messageId: mid, senderPub: senderPub, deliveredAt: now);
+            messageId: mid,
+            senderPub: senderPub,
+            deliveredAt: now,
+            deviceId: sys['device_id'] as String?,
+          );
         }
         return null;
       }
@@ -719,7 +728,11 @@ class ReceiveEnvelopeUseCase {
         if (mid != null) {
           final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           await processReceipt?.processReadReceipt(
-            messageId: mid, senderPub: senderPub, readAt: now);
+            messageId: mid,
+            senderPub: senderPub,
+            readAt: now,
+            deviceId: sys['device_id'] as String?,
+          );
         }
         return null;
       }
@@ -843,7 +856,11 @@ class ReceiveEnvelopeUseCase {
   void _sendDeliveredReceipt(String recipientPub, String mid) async {
     try {
       final plain = Uint8List.fromList(
-        utf8.encode(jsonEncode({'type': 'msg_delivered', 'mid': mid})),
+        utf8.encode(jsonEncode({
+          'type': 'msg_delivered',
+          'mid': mid,
+          'device_id': _myDeviceId,
+        })),
       );
       final boxed = await _crypto.encryptBox(recipientPub, plain);
       AppLogger.d('ReceiveUC', 'sending msg_delivered to ${recipientPub.substring(0, 8)}… mid=${mid.substring(0, 8)}…');

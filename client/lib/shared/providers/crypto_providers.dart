@@ -126,6 +126,10 @@ class IdentityNotifier extends Notifier<Identity?> {
     final keystore = KeystoreService(sodium);
     await keystore.saveIdentity(rotated);
     state = rotated;
+    // Without this, contacts keep verifying messages against the old signingPub
+    // until they happen to receive a new contact_hello — every outbound DM
+    // would fail signature check in the meantime.
+    ref.read(eventBusProvider).emit(const SigningKeyRotatedEvent());
   }
 }
 

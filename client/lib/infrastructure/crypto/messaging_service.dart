@@ -1271,7 +1271,11 @@ class MessagingService {
 
   /// Send a msg_delivered receipt to [recipientPub58] for message [mid].
   void _sendDeliveredReceipt(String recipientPub58, String mid) {
-    _sendReceiptWithRetry(recipientPub58, {'type': 'msg_delivered', 'mid': mid})
+    _sendReceiptWithRetry(recipientPub58, {
+      'type': 'msg_delivered',
+      'mid': mid,
+      'device_id': _identity.deviceId,
+    })
         .then((sent) {
           if (!sent) AppLogger.w('Msg', 'msg_delivered receipt failed for mid=${mid.substring(0, 8)}…');
         })
@@ -1283,7 +1287,11 @@ class MessagingService {
   /// Send a msg_read receipt to [recipientPub58] for message [mid].
   void sendReadReceipt(String recipientPub58, String mid) {
     AppLogger.d('Msg', 'sendReadReceipt mid=${mid.substring(0, 8)}… to=${recipientPub58.substring(0, 8)}…');
-    _sendReceiptWithRetry(recipientPub58, {'type': 'msg_read', 'mid': mid})
+    _sendReceiptWithRetry(recipientPub58, {
+      'type': 'msg_read',
+      'mid': mid,
+      'device_id': _identity.deviceId,
+    })
         .then((sent) {
           if (!sent) AppLogger.w('Msg', 'msg_read receipt failed for mid=${mid.substring(0, 8)}…');
         })

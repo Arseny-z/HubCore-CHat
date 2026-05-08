@@ -122,6 +122,62 @@ class SendQueueDao {
     return rows.map(SendQueueEntry.fromMap).toList();
   }
 
+  /// Decode the [perDeviceStatus] JSON for an entry. Empty map for v=1
+  /// (no per-device tracking) or malformed JSON.
+  static Map<String, String> parsePerDeviceStatus(SendQueueEntry e) {
+    final raw = e.perDeviceStatus;
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      return (jsonDecode(raw) as Map<String, dynamic>)
+          .map((k, v) => MapEntry(k, v.toString()));
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Initialise [perDeviceStatus] = {deviceId: 'sent', ...} for a v=2 row.
+  Future<void> setPerDeviceStatus(int qid, Map<String, String> status) =>
+      _db.update(
+        'send_queue',
+        {'per_device_status': jsonEncode(status)},
+        where: 'id = ?',
+        whereArgs: [qid],
+      );
+
+  /// Mark [deviceId] as [status] (typically 'acked') in the entry whose
+  /// `message_id == messageId`. Returns the updated map, or null if no row
+  /// or no per-device tracking on that row.
+  Future<Map<String, String>?> markDeviceStatus(
+    String messageId,
+    String deviceId,
+    String status,
+  ) async {
+    final rows = await _db.query(
+      'send_queue',
+      where: 'message_id = ?',
+      whereArgs: [messageId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final entry = SendQueueEntry.fromMap(rows.first);
+    final current = parsePerDeviceStatus(entry);
+    if (current.isEmpty) return null;
+    final next = {...current, deviceId: status};
+    await _db.update(
+      'send_queue',
+      {'per_device_status': jsonEncode(next)},
+      where: 'id = ?',
+      whereArgs: [entry.id],
+    );
+    return next;
+  }
+
+  /// True if every entry in [status] is 'acked'. Empty map → false (caller
+  /// should treat untracked rows as legacy and use the existing single-ack
+  /// behaviour).
+  static bool allAcked(Map<String, String> status) =>
+      status.isNotEmpty && status.values.every((v) => v == 'acked');
+
   /// Returns entries that need a send attempt:
   /// - not yet sent (ack_pending = 0) with next_retry <= now
   /// - already sent but no receipt yet (ack_pending = 1) with next_retry <= now

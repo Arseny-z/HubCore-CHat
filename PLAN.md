@@ -29,15 +29,15 @@
 - [x] P2-5 Contacts & Privacy — stranger/blocked/policy, "New conversations" section, block UI (~6.5 days)
 - [x] P2-6 Profile privacy — public vs contacts profile, per-recipient profile selection (~3 days)
 
-## P3 — Multi-device (in progress)
+## P3 — Multi-device
 
-- [ ] P3-1 Complete device pairing UI — `PairDeviceScreen` (show QR) + `ScanPairingScreen` (scan QR)
-- [ ] P3-2 `DevicePairingCrypto` — QR bundle encrypt/decrypt
-- [ ] P3-3 `DevicePairingService` — handshake/ack logic + save devices + broadcast hello
-- [ ] P3-4 Cross-device sync service (`device_sync_request/response`)
-- [ ] P3-5 `send_queue` per-device status
-- [ ] P3-6 Signing key rotation on master device only
-- [ ] P3-7 Device management UI
+- [x] P3-1 Complete device pairing UI — `PairDeviceScreen` (show QR) + `ScanPairingScreen` (scan QR)
+- [x] P3-2 `DevicePairingCrypto` — QR bundle encrypt/decrypt
+- [x] P3-3 `DevicePairingService` — handshake/ack logic + save devices + broadcast hello
+- [x] P3-4 Cross-device sync service (`device_sync_request/response`)
+- [x] P3-5 `send_queue` per-device status
+- [x] P3-6 Signing key rotation on master device only
+- [x] P3-7 Device management UI
 
 ## P4 — Groups
 

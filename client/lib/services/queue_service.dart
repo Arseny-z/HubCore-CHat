@@ -145,6 +145,13 @@ class QueueService {
               final retryIntervalSec = await _getRetryIntervalSec();
               final queueId = await _enqueue(messageId: mid, recipients: recipients, encryptedBody: encBody, contentType: contentType);
               await _storage.sendQueue.setPendingAck(queueId, now + retryIntervalSec);
+              // v=2 per-device tracking: queue row stays alive until every
+              // contact device has acked. ProcessReceiptUseCase reads device_id
+              // from msg_delivered receipts and flips the slot.
+              await _storage.sendQueue.setPerDeviceStatus(
+                queueId,
+                {for (final d in devices) d.deviceId: 'sent'},
+              );
               return MessageStatus.sent;
             } else {
               await _enqueue(messageId: mid, recipients: recipients, encryptedBody: encBody, contentType: contentType);
