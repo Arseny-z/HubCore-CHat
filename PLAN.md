@@ -71,39 +71,43 @@
 > Full rationale, threat model, and impact map in `docs/GROUP_CRYPTO_REFACTOR_ROADMAP.md`.
 
 ### P7-0 Decisions gate
-- [ ] P7-0 Resolve §9 open decisions (wire format approval, subscriber cap, `crypto_version` vs `protocol_version` naming, envelope discriminator string)
+- [x] P7-0 Resolved 2026-05-09: per-recipient envelope, cap 100, file limit 2 MB, hard cutover, `epoch`, `group_post`. See §0 of design doc.
 
 ### P7-1 Codec + tests (3–4 days)
 - [ ] P7-1 `GroupPostEnvelope` dataclass + canonical JSON encode/decode
-- [ ] P7-2 `group_post_codec.dart` — wrap-per-recipient (NaCl box) + Ed25519 signature transcript + verify
-- [ ] P7-3 Unit tests: roundtrip, tamper-ciphertext, tamper-signature, missing-wrap drop, wrong-recipient cannot decrypt
+- [ ] P7-2 `group_post_codec.dart` — AEAD content + per-recipient NaCl box wrap + Ed25519 signature transcript
+- [ ] P7-3 Unit tests: roundtrip, tamper-content, tamper-signature, wrong-recipient cannot decrypt
 
-### P7-2 Schema + DAO (1–2 days)
-- [ ] P7-4 Schema v26: `groups.crypto_version` + `groups.epoch` columns + migration
-- [ ] P7-5 `Group` entity + `GroupsDao` reads/writes new columns
-- [ ] P7-6 `createGroup` flow: new groups created with `crypto_version=2`
+### P7-2 Schema cutover v26 + DAO (1–2 days)
+- [ ] P7-4 Schema v26: drop `group_members.{chain_key,ratchet_pub,counter}`, add `groups.epoch`
+- [ ] P7-5 `Group` + `GroupMember` entities, `GroupsDao` reflect new shape
+- [ ] P7-6 `GroupInvite` entity: replace `chainKeyBlob` with `roster: List<String>` + `epoch`
 
 ### P7-3 Receive path (2 days)
-- [ ] P7-7 `group_post` (v=2) handler in `ReceiveEnvelopeUseCase` with signature verification
-- [ ] P7-8 Roster/epoch sync, dedup by `messageId`, `MessageReceivedEvent` emit
+- [ ] P7-7 Replace `group_msg` handler with `group_post` in `ReceiveEnvelopeUseCase` (signature verify, sender-is-member check)
+- [ ] P7-8 Dedup by `(msg_id, sender)`, `MessageReceivedEvent` emit, banned-sender drop
 
-### P7-4 Send path + UI integration (3–4 days)
-- [ ] P7-9 `SendGroupPostUseCase` (build wraps, sign, fan-out)
-- [ ] P7-10 `GroupChatScreen` send paths (text / image / audio / video) branch on `crypto_version`
-- [ ] P7-11 Adapt `AcceptGroupInviteUseCase` for v=2 (roster + epoch, no chain import)
-- [ ] P7-12 Kick path in v=2: skip `rotateMyChain`, bump `epoch`, broadcast `group_kick`
-- [ ] P7-13 `FileService.sendFile` for groups: branch on `crypto_version` for `FileOffer` envelope wrapping
+### P7-4 Send path + UI integration (2–3 days)
+- [ ] P7-9 `SendGroupPostUseCase` — gen content key, AEAD, build wraps, sign once, fan-out
+- [ ] P7-10 `GroupChatScreen` send paths (text / image / audio / video) call use case (single path, no version branch)
+- [ ] P7-11 `AcceptGroupInviteUseCase` rewritten — persist roster + epoch on accept (no chain)
+- [ ] P7-12 Kick path: bump `epoch`, broadcast `group_kick`, drop `rotateMyChain` call
+- [ ] P7-13 `FileService.sendFile` for groups: route `FileOffer` through `SendGroupPostUseCase`
 
-### P7-5 Channels MVP on B (~10 days)
-- [ ] P7-14 Schema: `channels`, `channel_members` tables + `ChannelsDao`
-- [ ] P7-15 Channel envelopes (`channel_invite`, `channel_post`, `channel_unsubscribe`, `channel_kick`, `channel_update`) — `channel_post` reuses `GroupPostEnvelope`
-- [ ] P7-16 `ChannelsTab` in MainScreen
-- [ ] P7-17 `ChannelScreen` (feed + composer for admin) + reactions/replies (free from P6-4)
-- [ ] P7-18 `CreateChannelScreen` + `ChannelSettingsScreen` (subscribers, kick, edit metadata)
-- [ ] P7-19 Discovery via QR + share-link (`hubcorechannel://…`)
-- [ ] P7-20 Subscriber cap enforcement (default 100, hard-coded)
+### P7-5 Sender Keys removal (1 day)
+- [ ] P7-14 Delete `lib/crypto/sender_keys.dart` + `test/crypto/sender_keys_test.dart`
+- [ ] P7-15 Strip Sender Keys methods from `group_messaging_service.dart` (rename to `group_crypto_service.dart`); `flutter analyze` clean
 
-### P7-6 Hardening + docs (3–5 days)
-- [ ] P7-21 Multi-device tests across kicks / adds (P3 stack)
-- [ ] P7-22 Update `CRYPTO.md`, `PROTOCOL.md`, `CHANNELS_ROADMAP.md`
-- [ ] P7-23 `flutter analyze` clean; remove TODO/stub markers
+### P7-6 Channels MVP on B (~10 days)
+- [ ] P7-16 Schema: `channels`, `channel_members` tables + `ChannelsDao`
+- [ ] P7-17 Channel envelopes (`channel_invite`, `channel_post`, `channel_unsubscribe`, `channel_kick`, `channel_update`) — `channel_post` reuses `GroupPostEnvelope`
+- [ ] P7-18 `ChannelsTab` in MainScreen
+- [ ] P7-19 `ChannelScreen` (feed + composer for admin) + reactions/replies (free from P6-4)
+- [ ] P7-20 `CreateChannelScreen` + `ChannelSettingsScreen` (subscribers, kick, edit metadata)
+- [ ] P7-21 Discovery via QR + share-link (`hubcorechannel://…`)
+- [ ] P7-22 Subscriber cap enforcement (100), file limit 2 MB
+
+### P7-7 Hardening + docs (2–4 days)
+- [ ] P7-23 Multi-device tests across kicks / adds (P3 stack)
+- [ ] P7-24 Update `CRYPTO.md`, `PROTOCOL.md`, `CHANNELS_ROADMAP.md`
+- [ ] P7-25 `flutter analyze` clean; remove TODO/stub markers

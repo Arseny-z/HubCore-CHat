@@ -1,10 +1,27 @@
 # Group Crypto Refactor — Per-Post Wrap (Scheme B)
 
-**Status:** Draft / awaiting approval
+**Status:** P7-0 decisions resolved 2026-05-09 — phase 1 unblocked
 **Author:** —
 **Created:** 2026-05-08
 **Supersedes (when adopted):** crypto sections of `CHANNELS_ROADMAP.md`,
 parts of `CRYPTO.md`
+
+## 0. Decisions resolved (P7-0, 2026-05-09)
+
+| # | Question | Resolution |
+|---|---|---|
+| 1 | Wire format §3.2 | **Per-recipient envelope** — singular `wrap` (not a list); each recipient gets their own envelope with only their key wrap. Avoids `O(N)` wire-bloat and metadata leak (channel subscribers don't see each other). |
+| 2a | Subscriber cap (channels MVP) | **100** |
+| 2b | File limit in channel posts | **2 MB** (matches group file limit) |
+| 3 | DM crypto | **Stays on Double Ratchet.** Pair-to-pair messaging is well-served by DR — no change. |
+| 4 | Existing groups migration | **Hard cutover.** No production deployments yet → Sender Keys code is removed entirely; no `crypto_version` flag needed. |
+| 5 | Roster counter column name | **`epoch`** (`groups.epoch INTEGER NOT NULL DEFAULT 0`) |
+| 6 | Envelope discriminator | **`group_post`** (works for both groups and channels) |
+
+These decisions are reflected throughout this doc — sections affected:
+§3.2 (wire format), §3.3 (operations), §4 (migration → cutover), §5
+(code impact: deletions of Sender Keys + no version branching), §6
+(phased roadmap: shorter, with explicit `Phase 0 — Removal`).
 
 ---
 
@@ -129,122 +146,145 @@ AEAD-encrypt the body with it, then attach an N-list of NaCl-box-wrapped
 copies of that content key — one per recipient — and sign the whole
 envelope with the sender's signing key.
 
-### 3.2 Wire format (DRAFT)
+### 3.2 Wire format
+
+**Per-recipient envelope** — sender produces N envelopes, one per
+recipient. Each envelope carries the same content ciphertext and the
+recipient's own key wrap. No recipient sees the others.
 
 ```
-GroupPostEnvelope {
-  type:          "group_post"      // discriminator
-  v:             1                 // protocol version (allows future change)
-  group_id:      base58            // conversation id
-  epoch:         uint32            // group membership epoch (incremented on add/kick)
+GroupPostEnvelope {                  // one per recipient
+  type:          "group_post"
+  group_id:      base58              // conversation id
+  epoch:         uint32              // group roster epoch (bumped on add / kick / role change)
   content:       {
-    nonce:       bytes[24]         // XChaCha20-Poly1305 nonce
-    ciphertext:  bytes             // AEAD(content_key, plaintext, nonce, AAD)
+    nonce:       bytes[24]           // XChaCha20-Poly1305 nonce
+    ciphertext:  bytes               // AEAD(content_key, plaintext, nonce, AAD)
   }
-  wraps: [
-    {
-      to_pub:    base58            // recipient X25519 pub (32B)
-      box_nonce: bytes[24]         // NaCl box nonce
-      eph_pub:   bytes[32]         // ephemeral X25519 pub from this box
-      box:       bytes[32+16]      // NaCl box ciphertext of content_key
-    },
-    …
-  ]
-  msg_id:        hex8              // for receipts and dedup
-  ttl_seconds:   uint32?           // optional disappearing TTL
-  sender_pub:    base58            // sender signing-pub (Ed25519)
-  signature:     bytes[64]         // Ed25519.sign(signing_priv, transcript)
+  wrap:          {                   // singular — only this recipient's key share
+    box_nonce: bytes[24]             // NaCl box nonce
+    eph_pub:   bytes[32]             // ephemeral X25519 pub
+    box:       bytes[32+16]          // NaCl box of content_key
+  }
+  msg_id:        hex8                // for receipts and dedup
+  ttl_seconds:   uint32?             // optional disappearing TTL
+  sender_pub:    base58              // sender signing-pub (Ed25519)
+  signature:     bytes[64]           // Ed25519.sign(signing_priv, transcript)
 }
 
 transcript = SHA256(
-  "hubcore-group-post-v1"  ||
-  group_id                 ||
-  epoch                    ||
-  msg_id                   ||
-  content.nonce            ||
-  content.ciphertext       ||
-  // wraps order is canonical: sorted by to_pub
-  ∀ wrap in wraps:
-    wrap.to_pub || wrap.box_nonce || wrap.eph_pub || wrap.box
+  "hubcore-group-post-v1" ||
+  group_id                ||
+  epoch                   ||
+  msg_id                  ||
+  content.nonce           ||
+  content.ciphertext
 )
 
 AAD for content AEAD = "hubcore-content-v1" || group_id || epoch || msg_id
 ```
 
-Sizes (rough):
+The signature is **identical for every recipient** of the same post —
+it doesn't depend on the wrap. It authenticates the *content* and the
+sender's group context (group_id + epoch + msg_id), which is what
+matters.
 
-- Content overhead per post ≈ 24 (nonce) + 16 (Poly1305 tag) = 40 B
-- Per-wrap ≈ 32 (to_pub) + 24 (nonce) + 32 (eph_pub) + 48 (box) = 136 B
+Sizes (per envelope sent to one recipient):
+
+- Content overhead ≈ 24 (nonce) + 16 (Poly1305 tag) = 40 B
+- One wrap ≈ 24 (box_nonce) + 32 (eph_pub) + 48 (box ciphertext) = 104 B
 - Signature + sender_pub ≈ 96 B
 - Header / framing ≈ 50 B
 
-For N=100 recipients: `100 × 136 ≈ 13.6 KB` overhead per post.
-For N=50:  `~6.8 KB`.
-For N=200: `~27 KB`.
+Per-envelope total (text post 200 B body): **~ 490 B**.
+
+Total bytes the sender uploads for one post:
+
+| Recipients (N) | Total upload |
+|---|---|
+| 50 | ~ 24 KB |
+| 100 | ~ 49 KB |
+| 200 | ~ 98 KB |
+
+Compared to the bundled-wraps alternative considered earlier in the
+design (one envelope to all, list of N wraps inside) this is **N×
+cheaper on wire** (no quadratic growth) and gives channel subscribers
+member-list privacy for free.
 
 ### 3.3 Operations
 
 #### Send a post
 
 ```
-content_key   = randombytes(32)
-nonce         = randombytes(24)
-ciphertext    = chacha20poly1305_encrypt(content_key, plaintext, nonce, AAD)
-wraps         = []
-for member in active_members(group):                 // excludes 'banned' + self
+content_key  = randombytes(32)
+nonce        = randombytes(24)
+ciphertext   = chacha20poly1305_encrypt(content_key, plaintext, nonce, AAD)
+transcript   = sha256("hubcore-group-post-v1" || group_id || epoch || msg_id
+                      || nonce || ciphertext)
+signature    = ed25519_sign(signing_priv, transcript)
+
+envelopes    = []
+for member in active_members(group):                  // excludes 'banned' + self
     eph        = x25519.keygen()
     box_nonce  = randombytes(24)
     box        = nacl_box(member.x25519_pub, eph.priv, content_key, box_nonce)
-    wraps.append({ to_pub: member.master_pub, box_nonce, eph_pub: eph.pub, box })
-transcript    = sha256(...)
-signature     = ed25519_sign(signing_priv, transcript)
-envelope      = GroupPostEnvelope { ... }
-broadcast(envelope)                                  // single envelope → all members
+    envelopes.append(Envelope {
+      to:        member.master_pub,
+      body:      GroupPostEnvelope {
+        group_id, epoch, content { nonce, ciphertext },
+        wrap     { box_nonce, eph_pub: eph.pub, box },
+        msg_id, ttl_seconds, sender_pub, signature
+      }
+    })
+zeroize(content_key)
+for env in envelopes: transport.send(env)             // CompositeTransport per-pair
 ```
 
-The envelope is identical for everyone — we send **one envelope to N
-recipients** at the transport layer (CompositeTransport already supports
-this; today Sender Keys also fan-outs N envelopes since each is per-pair —
-the size is comparable to slightly smaller).
+`content_key` is generated once, used to AEAD-encrypt the body, then
+discarded. Each member receives a different envelope (different `wrap`)
+but the same `content`, `signature`, and metadata.
 
 #### Receive a post
 
 ```
-verify(signature) using sender_pub                    // reject if not a current group member
-                                                       // (or signing_pub already known via contact_hello)
-my_wrap       = wraps.find(w => w.to_pub == my_pub)
-if my_wrap is None:
-    drop_silently()                                    // I am no longer a recipient (kicked); ignore
-content_key   = nacl_box_open(my_x25519_priv, my_wrap.eph_pub, my_wrap.box, my_wrap.box_nonce)
-plaintext     = chacha20poly1305_decrypt(content_key, ciphertext, nonce, AAD)
-zeroize(content_key)                                   // best-effort wipe
+verify(signature) using sender_pub               // signing pub known via contact_hello
+                                                  // reject if sender not a current group member
+content_key = nacl_box_open(my_x25519_priv,
+                            wrap.eph_pub,
+                            wrap.box,
+                            wrap.box_nonce)       // None → drop silently
+plaintext   = chacha20poly1305_decrypt(content_key, content.ciphertext,
+                                       content.nonce, AAD)
+zeroize(content_key)
+if message_already_seen(msg_id, sender_pub): return  // dedup
 store_message(plaintext)
-send_msg_received_receipt(...)
+send_msg_received_receipt(sender_pub, msg_id)
 ```
 
 #### Add a member
 
-1. Admin (or any member with `canAddMembers` permission) sends
-   `group_join_invite` (control envelope, NaCl box) to the new member.
-   Payload: group metadata + current epoch + current roster of x25519
-   pubs.
-2. New member creates local group state.
-3. Admin bumps `epoch` and broadcasts a `group_member_added(new_pub)`
+1. Admin (or member with `canAddMembers`) sends a `group_join_invite`
+   control envelope (NaCl box) to the new member. Payload: group
+   metadata + current `epoch` + current roster (master pubs only).
+2. New member persists the group locally with the supplied `epoch`.
+3. Admin bumps `groups.epoch` and broadcasts a `group_member_added`
    control envelope to all members.
-4. Subsequent posts include `new_pub` in their `wraps`.
+4. Subsequent posts include `new_pub` in their per-recipient fan-out.
 
-No chain key needs to be sent. New members **cannot decrypt past posts**
-unless an explicit history-share flow is added (intentionally).
+No chain key is exchanged. New members **cannot decrypt past posts**
+unless an explicit history-share flow is added later (out of scope).
 
 #### Remove a member
 
 1. Admin sends `group_kick(removed_pub)` to all members including the
-   removed one (current behaviour).
-2. Admin bumps `epoch`.
-3. Subsequent posts simply omit `removed_pub` from `wraps`.
+   removed one (existing behaviour).
+2. Admin bumps `groups.epoch`.
+3. Subsequent posts simply omit `removed_pub` from the recipient list.
 
-There is **no `rotateMyChain` step**. The kicked member already cannot
-decrypt anything addressed to others — there is no shared key to revoke.
+There is **no `rotateMyChain` step**. The kicked member never had a
+shared chain to revoke — they only had the wraps for posts they've
+already received, and those past content keys are already discarded by
+the sender.
 
 ### 3.4 Replay & ordering
 
@@ -274,24 +314,26 @@ decrypt anything addressed to others — there is no shared key to revoke.
   are wrapped into until they are removed. Same as Sender Keys.
 - **Replay across epochs:** rejected by `(msg_id, sender)` dedup.
 - **Roster drift:** if A thinks B is a member but B has been kicked, A
-  will include B in `wraps` — B (still holding its X25519) will decrypt.
-  Mitigated by `epoch` sync on kick/add (control plane is fast and
-  reliable).
+  will include B in the recipient list — B (still holding its X25519)
+  will decrypt that one stale post. Mitigated by `epoch` sync on
+  kick/add (control plane is fast and reliable).
 
 ### 3.6 Comparison vs Sender Keys
 
-| Property | Sender Keys (current) | Scheme B (proposed) |
+| Property | Sender Keys (current) | Scheme B (resolved) |
 |---|---|---|
 | Forward secrecy | Per ratchet step (every 100 msgs) | Per post (always) |
 | PCS | None | None |
 | Code size | 521 + 219 LOC + cache + ratchet sched | ~150 LOC codec + reuse of existing `encryptBox` |
 | State per device | N chains × group | Zero (stateless) |
 | Add member cost | 1 invite + chain | 1 invite, no chain |
-| Kick cost | `(N-1)²` rotation envelopes | 1 control envelope |
+| Kick cost | `(N-1)²` rotation envelopes | 1 control envelope + epoch bump |
 | Out-of-order | Skipped-keys cache | Trivially OK |
-| Per-post overhead (N=100) | ~50 B framing | ~13.6 KB wraps |
-| Ciphertext fan-out | N envelopes (per-pair) | 1 envelope to N recipients |
+| Per-recipient envelope size | ~50 B framing | ~ 490 B (text 200 B + 104 B wrap + 96 B sig + framing) |
+| Total upload at N=100 (text) | ~50 KB | ~ 49 KB |
+| Ciphertext fan-out | N envelopes (per-pair) | N envelopes (per-pair, identical content + per-recipient wrap) |
 | Authentication of sender | Implicit (chain-only writer) | Explicit Ed25519 signature |
+| Recipients see each other? | Yes (membership table) | **No** (no recipient list in envelope — channel privacy free) |
 | Crypto paths in repo | 2 (Sender Keys + NaCl box) | 1 (NaCl box only) |
 
 **Trade-off tally:**
@@ -348,8 +390,9 @@ All of the following remain **as-is**:
   video `content_type`)
 - DM file transfer (`FileOffer` over DR is unchanged)
 
-So the wire format change is a one-liner per send site: pick `B` codec
-when `group.crypto_version == 2`, else legacy.
+So the wire format change is a one-liner per send site: route the
+`FileOffer` body through `SendGroupPostUseCase` instead of the deleted
+`encryptGroupOffer`.
 
 ### 3.9 Why this is OK without MLS
 
@@ -364,259 +407,273 @@ when `group.crypto_version == 2`, else legacy.
 
 ---
 
-## 4. Migration strategy
+## 4. Migration strategy — Hard cutover
 
-We will not in-place migrate existing groups. Two reasons:
+There are no production deployments yet, so there is **no installed
+base of Sender Keys groups to migrate**. We use the freedom to do a
+clean refactor:
 
-1. The current `group_members` table holds chain state that is meaningful
-   to old clients. A rolling rollout where some peers are old and some
-   new must keep both code paths working.
-2. There is no compelling user benefit in re-keying old conversations.
+- **Sender Keys is removed entirely** in this work — `sender_keys.dart`,
+  the chain caches in `GroupMessagingService`, the `_GroupPayload`
+  envelope type, and the `chain_key` / `ratchet_pub` / `counter`
+  columns from `group_members` all go away.
+- **No `crypto_version` flag.** Every group from this commit forward is
+  on scheme B; there is nothing to branch on.
+- **Channels** ship on B from day 1 (they did not exist before).
+- **Schema migration v26**: drop `group_members.chain_key`,
+  `group_members.ratchet_pub`, `group_members.counter`; add
+  `groups.epoch INTEGER NOT NULL DEFAULT 0`. Rebuild any existing dev
+  groups manually if needed (no production data).
 
-**Plan:**
-
-- **Existing groups stay on Sender Keys forever.** `GroupMessagingService`
-  remains in the codebase, marked legacy.
-- **New groups created after vN.M use scheme B.** A flag on `groups`
-  (`crypto_version: 1=sender_keys, 2=per_post_wrap`) decides at send and
-  receive time which path to take.
-- **Channels (P6-6) ship on B from day 1.** Channels are a new product
-  surface — no legacy to support.
-- After 6+ months and a confirmed low usage of legacy groups, deprecate
-  Sender Keys (delete code + force re-create old groups).
-
-This keeps risk bounded. Worst case we revert by stopping creation of
-v=2 groups; existing v=1 unaffected.
+**Why this is safer than soft-fork in our case:** soft-fork keeps two
+crypto paths in production code forever, doubling the test surface and
+the maintenance cost. Hard cutover is one path, one set of tests, one
+mental model. The trade-off is "cannot migrate live groups" which we
+do not need to do.
 
 ---
 
 ## 5. Code impact map
 
-### 5.1 New files (groups B + channels MVP)
+### 5.1 Files to delete (Sender Keys removal)
+
+| File | Reason |
+|---|---|
+| `lib/crypto/sender_keys.dart` (~219 LOC) | Sender Keys primitive — fully replaced by `group_post_codec` |
+| `test/crypto/sender_keys_test.dart` | Tests for the deleted primitive |
+| Sender-Keys-only methods in `group_messaging_service.dart` (`buildInvitePayload` for chain, `acceptInvite`, `importMemberChain`, `rotateMyChain`, `evictMemberChain`, `_chains` cache, `encryptGroupOffer`, `_GroupPayload` codec) | Replaced by per-post wrap — file becomes a thin orchestration layer or is renamed to `group_crypto_service.dart` |
+
+### 5.2 New files (groups B + channels MVP)
 
 | File | Purpose | LOC est. |
 |---|---|---|
-| `lib/infrastructure/crypto/group_post_codec.dart` | Encode / decode `GroupPostEnvelope`, signature, transcript | ~150 |
-| `lib/application/use_cases/groups/send_group_post_use_case.dart` | Orchestrates send: build wraps, sign, broadcast | ~80 |
+| `lib/infrastructure/crypto/group_post_codec.dart` | Encode / decode `GroupPostEnvelope`, signature, transcript, AEAD, NaCl box wrap/unwrap | ~150 |
+| `lib/application/use_cases/groups/send_group_post_use_case.dart` | Orchestrates send: gen content key, AEAD, sign, fan-out per recipient | ~80 |
 | `lib/storage/dao/channels_dao.dart` | Channel + subscriber CRUD | ~150 |
 | `lib/features/channels/channels_tab.dart` | List of joined channels in MainScreen | ~120 |
 | `lib/features/channels/channel_screen.dart` | Channel feed + composer (admin only) | ~250 |
 | `lib/features/channels/create_channel_screen.dart` | Form: name / desc / avatar | ~120 |
 | `lib/features/channels/channel_settings_screen.dart` | Subscribers, kick, edit metadata | ~200 |
 | `lib/application/use_cases/channels/*` (5 files) | Create / publish / subscribe / unsubscribe / kick | ~300 total |
-| `test/crypto/group_post_codec_test.dart` | Roundtrip, tampering, signature, replay, missing-wrap | ~150 |
-| `test/use_cases/send_group_post_use_case_test.dart` | Wrap order, signature transcript, fan-out | ~100 |
-| `test/integration/groups_v2_test.dart` | 3-member group with kick + post sequence | ~150 |
+| `test/crypto/group_post_codec_test.dart` | Roundtrip, tamper-content, tamper-signature, wrong-recipient drop | ~150 |
+| `test/use_cases/send_group_post_use_case_test.dart` | Signature transcript, fan-out correctness | ~100 |
+| `test/integration/groups_b_test.dart` | 3-member group with kick + post sequence | ~150 |
 
-### 5.2 Modified files
+### 5.3 Modified files
 
 #### Crypto layer
 
-| File | Change | Risk |
-|---|---|---|
-| `lib/infrastructure/crypto/group_messaging_service.dart` | Add `sendGroupPostV2()` alongside existing `sendGroupMessage()`; do **not** remove legacy paths | Medium |
-| `lib/crypto/sender_keys.dart` | _untouched_ (legacy support) | — |
-| `lib/infrastructure/crypto/messaging_service.dart` | _untouched_ (DM = DR) | — |
-| `lib/infrastructure/crypto/double_ratchet.dart` | _untouched_ | — |
+| File | Change |
+|---|---|
+| `lib/infrastructure/crypto/group_messaging_service.dart` | Strip Sender Keys methods; keep only group lifecycle / fan-out helpers; rewire to `SendGroupPostUseCase`. May rename to `group_crypto_service.dart`. |
+| `lib/infrastructure/crypto/messaging_service.dart` | _untouched_ (DM = DR) |
+| `lib/infrastructure/crypto/double_ratchet.dart` | _untouched_ |
 
 #### Use cases / Application
 
-| File | Change | Risk |
-|---|---|---|
-| `lib/application/use_cases/messaging/receive_envelope_use_case.dart` | New `group_post` (v=2) handler before existing `group_msg` (v=1); also routes `channel_post` to channels handler | Low — additive |
-| `lib/application/use_cases/groups/accept_group_invite_use_case.dart` | Branch on `crypto_version`: v=2 path skips chain import, just persists roster + epoch | Medium |
+| File | Change |
+|---|---|
+| `lib/application/use_cases/messaging/receive_envelope_use_case.dart` | Replace `group_msg` (Sender Keys) handler with `group_post` (B) handler. No version branching. |
+| `lib/application/use_cases/groups/accept_group_invite_use_case.dart` | Single path: persist roster + epoch on invite acceptance. No chain import. |
 
 #### Storage
 
-| File | Change | Risk |
-|---|---|---|
-| `lib/storage/database.dart` | Schema **v26**: `groups.crypto_version INTEGER NOT NULL DEFAULT 1`, `groups.epoch INTEGER NOT NULL DEFAULT 0`; new `channels` + `channel_members` tables | Low — additive |
-| `lib/storage/dao/groups_dao.dart` | Read/write `crypto_version`, `epoch` | Low |
-| `lib/domain/entities/group.dart` | Add `cryptoVersion`, `epoch` fields | Low |
-| `lib/domain/entities/group_invite.dart` | Add `cryptoVersion` field; for v=2 the `chainKeyBlob` is empty and `roster` is populated instead | Medium |
-| Other DAOs (messages, contacts, files, settings, …) | _untouched_ | — |
+| File | Change |
+|---|---|
+| `lib/storage/database.dart` | Schema **v26**: drop `group_members.chain_key`, `group_members.ratchet_pub`, `group_members.counter`; add `groups.epoch INTEGER NOT NULL DEFAULT 0`; new `channels` + `channel_members` tables. |
+| `lib/storage/dao/groups_dao.dart` | Drop chain accessors; add `epoch` accessor + bump helper. |
+| `lib/domain/entities/group.dart` | Drop chain fields from `GroupMember`; add `epoch` to `Group`. |
+| `lib/domain/entities/group_invite.dart` | Replace `chainKeyBlob` with `roster: List<String>` + `epoch: int`. |
 
 #### File transfer
 
-| File | Change | Risk |
-|---|---|---|
-| `lib/infrastructure/file_transfer/file_service.dart` | In `sendFile(isGroup: true, …)`, branch on `crypto_version`: v=1 → existing `encryptGroupOffer`, v=2 → `SendGroupPostUseCase` carrying `FileOffer.encode()` | Medium |
-| `lib/crypto/file_encryption.dart` (SF03) | _untouched_ | — |
-| `lib/features/chat/voice_message_widgets.dart` / `video_circle_widgets.dart` | _untouched_ — they hand bytes to `FileService` | — |
+| File | Change |
+|---|---|
+| `lib/infrastructure/file_transfer/file_service.dart` | In `sendFile(isGroup: true, …)`: replace `encryptGroupOffer` call with `SendGroupPostUseCase` carrying `FileOffer.encode()`. |
+| `lib/crypto/file_encryption.dart` (SF03) | _untouched_ |
+| `lib/features/chat/voice_message_widgets.dart` / `video_circle_widgets.dart` | _untouched_ — they hand bytes to `FileService` |
 
-#### Group invite + membership
+#### Group invite + membership UI
 
-| File | Change | Risk |
-|---|---|---|
-| `lib/features/groups/group_settings_screen.dart` | `_addMember`: v=2 invite carries roster + epoch; `_removeMember`: v=2 path skips `rotateMyChain`, just bumps epoch + broadcasts `group_kick` | Medium |
-| `lib/features/groups/create_group_screen.dart` | New groups created with `crypto_version=2` | Low |
-| `lib/features/groups/group_chat_screen.dart` | Send paths (text / image / audio / video) branch on `crypto_version` | Medium |
+| File | Change |
+|---|---|
+| `lib/features/groups/group_settings_screen.dart` | `_addMember`: invite payload = roster + epoch (no chain). `_removeMember`: bump epoch + broadcast `group_kick`. **No `rotateMyChain` call.** |
+| `lib/features/groups/create_group_screen.dart` | Initialise group with `epoch=0`. |
+| `lib/features/groups/group_chat_screen.dart` | Replace `groupSvc.sendGroupMessage(...)` calls (text / image / audio / video) with `SendGroupPostUseCase`. Single path. |
 
-#### Routing / receive paths / network
+#### Routing / transport / DM
 
-| File | Change | Risk |
-|---|---|---|
-| `lib/network/message_router.dart` | _untouched_ — it just forwards to the use case | — |
-| `lib/infrastructure/transport/composite_transport.dart` | _untouched_ | — |
-| `lib/infrastructure/transport/{yggdrasil,reticulum,meshcore}_transport.dart` | _untouched_ | — |
-
-#### DM and contact flow
-
-| File | Change | Risk |
-|---|---|---|
-| `lib/features/chat/chat_screen.dart` (DM) | _untouched_ | — |
-| `lib/application/use_cases/contacts/send_contact_hello_use_case.dart` | _untouched_ | — |
-| `lib/features/contacts/*` | _untouched_ | — |
-| `lib/shared/widgets/my_qr_code.dart` | _untouched_ — QR format unchanged | — |
+| File | Change |
+|---|---|
+| `lib/network/message_router.dart` | _untouched_ |
+| `lib/infrastructure/transport/composite_transport.dart` | _untouched_ |
+| `lib/infrastructure/transport/{yggdrasil,reticulum,meshcore}_transport.dart` | _untouched_ |
+| `lib/features/chat/chat_screen.dart` (DM) | _untouched_ |
+| `lib/application/use_cases/contacts/send_contact_hello_use_case.dart` | _untouched_ |
+| `lib/features/contacts/*` | _untouched_ |
+| `lib/shared/widgets/my_qr_code.dart` | _untouched_ — QR format unchanged |
 
 #### Documentation
 
 | File | Change |
 |---|---|
-| `docs/CRYPTO.md` | Add a "Per-Post Wrap (v=2)" section after Sender Keys |
-| `docs/PROTOCOL.md` | Document the `group_post` envelope and `channel_post` |
+| `docs/CRYPTO.md` | Replace Sender Keys section with "Per-Post Wrap" |
+| `docs/PROTOCOL.md` | Replace `group_msg` envelope spec with `group_post`; add `channel_post` |
 | `docs/CHANNELS_ROADMAP.md` | Replace crypto section with a pointer to this doc |
 
-### 5.3 Counts at a glance
+### 5.4 Counts at a glance
 
-| Category | Files modified | Files new |
-|---|---|---|
-| Crypto | 1 (`group_messaging_service`) | 1 (`group_post_codec`) |
-| Use cases | 2 (receive, accept_invite) | 1 + 5 (`SendGroupPost` + 5 channel use cases) |
-| Storage | 3 (database, groups_dao, group entity) + 1 (group_invite entity) | 1 (`channels_dao`) |
-| File transfer | 1 (`file_service.sendFile` branch) | 0 |
-| Group UI | 3 (create / chat / settings) — branching only | 0 |
-| Channels UI | 0 | 4 |
-| Network / transport | 0 | 0 |
-| DM / contacts | 0 | 0 |
-| Tests | 0 | 3 |
-| Docs | 3 | 1 (this) |
-| **Total** | **~14** | **~16** |
+| Category | Files deleted | Files modified | Files new |
+|---|---|---|---|
+| Crypto | 1 (`sender_keys.dart`) | 1 (`group_messaging_service`) | 1 (`group_post_codec`) |
+| Use cases | 0 | 2 (receive, accept_invite) | 1 + 5 (`SendGroupPost` + 5 channels) |
+| Storage | 0 | 3 (database, groups_dao, group entity) + 1 (group_invite entity) | 1 (`channels_dao`) |
+| File transfer | 0 | 1 (`file_service.sendFile`) | 0 |
+| Group UI | 0 | 3 (create / chat / settings) | 0 |
+| Channels UI | 0 | 0 | 4 |
+| Network / transport / DM / contacts | 0 | 0 | 0 |
+| Tests | 1 (sender_keys_test) | 0 | 3 |
+| Docs | 0 | 3 | 1 (this) |
+| **Total** | **2** | **~14** | **~16** |
 
-All modifications are additive branches on `crypto_version`; no rewrite
-of legacy paths.
+Single code path post-cutover. No `crypto_version` branches anywhere.
 
 ---
 
 ## 6. Phased roadmap
 
 > Effort estimates assume one focused engineer. Tests and code review
-> included.
+> included. Hard cutover means no parallel-path work.
 
 ### Phase 1 — Codec + tests (3–4 days)
 
-- `GroupPostEnvelope` Dart class + JSON encode/decode
-- `group_post_codec.dart` send/receive helpers (no UI)
+- `GroupPostEnvelope` Dart class + canonical JSON encode/decode
+- `group_post_codec.dart`: AEAD content encrypt/decrypt; per-recipient
+  NaCl box wrap/unwrap; signature transcript + Ed25519 sign/verify
 - Unit tests:
-  - Roundtrip (encrypt → decrypt)
-  - Wrong recipient cannot decrypt
-  - Tampered ciphertext rejected
+  - Roundtrip (encrypt → wrap → unwrap → decrypt)
+  - Wrong recipient (foreign X25519 priv) cannot decrypt
+  - Tampered ciphertext rejected (AEAD MAC fails)
   - Tampered signature rejected
-  - Member with no wrap entry drops silently
+  - Stale `epoch` accepted but flagged for caller (no hard drop)
 
-**Exit criteria:** all unit tests green, no UI changes yet.
+**Exit criteria:** all unit tests green; no UI / wire integration yet.
 
-### Phase 2 — Schema migration v26 + groups DAO (1–2 days)
+### Phase 2 — Schema cutover v26 + groups DAO (1–2 days)
 
-- Add `groups.crypto_version` column (default 1 for legacy)
-- Update `Group` entity + DAO read/write
-- Plumb `cryptoVersion` through `GroupRepository`
-- `createGroup` flow: new groups get `crypto_version=2`
+- Schema **v26**: drop `group_members.chain_key`, `group_members.ratchet_pub`,
+  `group_members.counter`; add `groups.epoch INTEGER NOT NULL DEFAULT 0`.
+- Update `Group` and `GroupMember` entities (drop chain fields, add `epoch`).
+- Update `GroupsDao` and `GroupMembersDao` accessors.
+- Update `GroupInvite` entity: `chainKeyBlob` → `roster: List<String>` + `epoch`.
 
-**Exit criteria:** legacy groups still load with `crypto_version=1`; new
-groups created with v=2.
+**Exit criteria:** schema migrates cleanly on a fresh dev DB; old chain
+columns are gone; all DAO callers compile.
 
-### Phase 3 — Wire path in `ReceiveEnvelopeUseCase` (2 days)
+### Phase 3 — Receive path in `ReceiveEnvelopeUseCase` (2 days)
 
-- Add `group_post` (v=2) handler in box-JSON path
-- Verify signature against `sender_pub` (already known via
-  `contact_hello`)
-- Decrypt + dedupe + write to `messages` + emit `MessageReceivedEvent`
-- Add `onSessionDesync` style fallback if signature fails
+- Replace `group_msg` (Sender Keys) handler with `group_post` (B) handler.
+- Verify signature against `sender_pub` (known via `contact_hello`).
+- Decrypt + dedupe by `(msg_id, sender)` + write to `messages` + emit
+  `MessageReceivedEvent`.
+- Drop posts whose sender is not a current member (or is banned).
 
-**Exit criteria:** v=2 envelopes received and decrypted correctly. v=1
-groups still functional (no regression).
+**Exit criteria:** sending a `group_post` envelope from one device to
+another causes the message to appear correctly.
 
-### Phase 4 — Send path + UI integration (3–4 days)
+### Phase 4 — Send path + UI integration (2–3 days)
 
-- `SendGroupPostUseCase` (build wraps, sign, hand to transport)
-- `GroupChatScreen` / `GroupMessagingService` branching by
-  `crypto_version` on send
-- Reactions, files, replies follow the same v=2 envelope (P6-2/P6-4
-  hooks) — verify nothing assumes Sender Keys body
-- Kick path: v=2 groups skip `rotateMyChain`
+- `SendGroupPostUseCase` orchestrates: gen content key, AEAD body,
+  build per-recipient wraps, sign once, fan-out N envelopes.
+- `GroupChatScreen` send paths (text / image / audio / video) call the
+  use case directly. **No version branching.**
+- `_addMember` / `_removeMember` in `GroupSettingsScreen`: bump `epoch`,
+  send `group_kick` / `group_member_added` control envelopes. Drop the
+  `rotateMyChain` call entirely.
+- `FileService.sendFile` for groups: replace `encryptGroupOffer` with
+  `SendGroupPostUseCase` for the `FileOffer`.
 
-**Exit criteria:** v=2 groups send/receive end-to-end on real devices
-including files and reactions.
+**Exit criteria:** group send / receive end-to-end on two real devices,
+covering text, image, voice, video, file, reaction, reply.
 
-### Phase 5 — Channels on B (P6-6) (~10 days)
+### Phase 5 — Sender Keys removal (1 day)
 
-- DB: `channels` table, `channel_members` (subscribers + role)
-- New envelopes: `channel_invite`, `channel_post` (= reuse
+- Delete `lib/crypto/sender_keys.dart` and
+  `test/crypto/sender_keys_test.dart`.
+- Strip Sender Keys methods from `group_messaging_service.dart`
+  (rename to `group_crypto_service.dart` if appropriate).
+- Confirm `flutter analyze` shows zero references to deleted symbols.
+
+**Exit criteria:** no Sender Keys code in the repo; all tests still pass.
+
+### Phase 6 — Channels on B (~10 days)
+
+- Schema: `channels`, `channel_members` tables + `ChannelsDao`.
+- New envelopes: `channel_invite`, `channel_post` (reuses
   `GroupPostEnvelope` with channel routing), `channel_unsubscribe`,
-  `channel_kick`, `channel_update`
-- UI: ChannelsTab, CreateChannelScreen, ChannelScreen, ChannelSettings
-- Subscriber cap (start: **100**, hard-coded; raise later if needed)
-- Discovery via QR + share-link
-- Reactions on posts (already universal post-P6-4)
+  `channel_kick`, `channel_update`.
+- UI: `ChannelsTab` (in MainScreen), `ChannelScreen` (feed + composer
+  for admins), `CreateChannelScreen`, `ChannelSettingsScreen`.
+- Discovery via QR + share-link (`hubcorechannel://…`).
+- Subscriber cap **100**; file limit in posts **2 MB** (matches groups).
+- Reactions on posts (free, inherited from P6-4).
 
-**Exit criteria:** end-to-end channel flow working for 1 admin + N
-subscribers (manual test up to 10).
+**Exit criteria:** end-to-end channel flow for 1 admin + N subscribers
+on real devices (manual test up to 10 subscribers).
 
-### Phase 6 — Hardening + docs (3–5 days)
+### Phase 7 — Hardening + docs (2–4 days)
 
-- Multi-device tests across kicks / adds (P3 stack)
-- Update `CRYPTO.md`, `PROTOCOL.md`, `CHANNELS_ROADMAP.md`
-- Remove "stub" / "TODO" markers
-- `flutter analyze` clean
+- Multi-device tests across kicks / adds / role changes (P3 stack).
+- Update `docs/CRYPTO.md` (replace Sender Keys section), `docs/PROTOCOL.md`
+  (envelope spec), `docs/CHANNELS_ROADMAP.md` (point at this doc).
+- `flutter analyze` clean; remove TODO / stub markers.
 
-**Exit criteria:** ready for release notes / changelog.
+**Exit criteria:** ready for release notes / changelog entry.
 
 ### Total
 
-**~25 working days** (~5 weeks) for Groups B + Channels B. Compared to
-existing PLAN.md estimate of 17 days for "Channels (Telegram-like feed)"
-that bakes in MLS. Net: similar duration, vastly less complexity / risk,
-and we get the simpler crypto across the board.
+| Phase | Days |
+|---|---|
+| 1. Codec + tests | 3–4 |
+| 2. Schema cutover | 1–2 |
+| 3. Receive path | 2 |
+| 4. Send + UI | 2–3 |
+| 5. Sender Keys removal | 1 |
+| 6. Channels | ~10 |
+| 7. Hardening + docs | 2–4 |
+| **Total** | **~21–26 days** |
+
+Hard cutover lets us cut Phase 4 by a day (no branching) and add the
+removal phase. Net effort is essentially the same as the soft-fork
+plan but ends with **no legacy code in the repo**.
 
 ---
 
-## 7. Open design questions
+## 7. Open design questions (post-P7-0)
 
-1. **Should `wraps` include `to_pub` as full base58 or as a short hash?**
-   Full pub adds 32 B per wrap. Short hash (e.g. first 8 B of BLAKE3)
-   saves 24 B per wrap (24 KB on 1000 recipients). Trade-off is a
-   negligible chance of collision and slightly slower lookup. *Default:
-   full pub for now — clarity over micro-optimization.*
+The following are minor implementation choices left to the engineer
+during Phase 1; they do not block the start of work.
 
-2. **Single envelope to N or N envelopes (one per recipient)?** Today's
-   Sender Keys returns N envelopes (`receivers.map(...)`). For B, we
-   could broadcast **one** envelope to all and let each recipient pick
-   their wrap. CompositeTransport currently sends per-pair (`to: pub` is
-   a per-recipient address). Decision: continue per-recipient
-   transport-level addressing for now; revisit if we add a multicast
-   transport in the future.
+1. **Banned members:** treated as kicked for recipient-list purposes
+   (omitted from fan-out). No special encoding.
 
-3. **Banned members:** treat as kicked for `wraps` purposes (omit). No
-   special encoding.
+2. **History sharing on join:** scheme B does not share past posts
+   with new joiners. If we want history-on-join later, it is a
+   separate feature (a one-shot "history blob" for the new member).
+   Out of scope here.
 
-4. **History sharing on join:** scheme B intentionally does not share
-   past posts with new joiners (no chain). If we want history-on-join
-   later, it is a separate feature that re-wraps a window of past posts
-   into a one-shot "history blob" for the new member. Not in scope here.
+3. **Group epoch governance:** only admins bump `epoch` (existing role
+   check). Receivers reject `epoch` bumps from non-admins.
 
-5. **Group epoch governance:** who can bump epoch? Today only admins
-   change roster. We keep that — only admins bump `epoch`. Receivers
-   accept epoch bumps only from valid admins (via existing role check).
+4. **Kicked-member visibility window:** between kick broadcast and the
+   next post, an in-flight post the admin already sent before
+   processing the kick may still reach the removed member. Same risk
+   profile as Sender Keys today. Acceptable.
 
-6. **Kicked-member visibility window:** between kick broadcast and the
-   next post, the kicked member could in principle still receive an
-   in-flight post (admin sent before processing kick). Same risk as
-   today's Sender Keys (pending sends use stale chain state). Acceptable.
-
-7. **Migration of existing groups (v=1 → v=2):** *deferred* — see §4.
-   Possible later via a `group_crypto_upgrade` envelope that is
-   essentially a fresh `group_join_invite` to all members in v=2 form.
+5. **Future migration (v2 → v3, e.g. MLS):** post-cutover we have a
+   single path; future protocol changes are easier to add cleanly than
+   to a soft-fork codebase. If/when needed we add a version flag at
+   that point — costs nothing now to defer.
 
 ---
 
@@ -624,26 +681,29 @@ and we get the simpler crypto across the board.
 
 | Risk | Mitigation |
 |---|---|
-| Bug in signature transcript → cross-version forgery | Strong test pass on Phase 1; canonical wrap ordering by `to_pub` |
-| Wire-size bloat in large groups | Hard cap subscribers/group at 200 in v=2 (UI-enforced) |
-| Receiver picks wrong wrap entry | Index by recipient pub, dedup'd transcript prevents tampering |
-| Migration bug breaks legacy v=1 groups | v=1 path untouched; `crypto_version` is additive |
-| Cipher key reuse / nonce reuse | `nonce = randombytes(24)` for every post; XChaCha20 gives 192-bit randomness margin |
+| Bug in signature transcript → forged messages accepted | Strong unit test pass on Phase 1: tamper-content, tamper-signature, wrong-key-verify |
+| Wire-size bloat at large group sizes | Hard cap members/group at 200 in UI |
+| Receiver fails to decrypt their wrap (missing X25519 priv) | Drop silently with `AppLogger.w`; sender sees no `msg_received` from that recipient |
+| Cipher / nonce reuse | `nonce = randombytes(24)` per post; XChaCha20 gives 192-bit randomness margin; new ephemeral key per box wrap |
+| Mis-built migration v26 dropping data on a real device | No production data to lose; dev DBs can be rebuilt; CI runs migration tests |
 
-**Rollback:** stop creating v=2 groups (feature flag in `createGroup`).
-v=2 groups already in the wild can still be received because the v=2
-handler stays compiled in. No data loss.
+**Rollback:** `git revert` of the cutover commit restores Sender Keys
+in full. There is no on-disk legacy state to be incompatible with —
+schema v26 is the new floor, and we are pre-release.
 
 ---
 
-## 9. Decisions needed before Phase 1 starts
+## 9. Decisions resolved (P7-0, 2026-05-09)
 
-- [ ] Approve the wire format in §3.2 (or propose changes).
-- [ ] Confirm subscriber cap **100** for channels MVP.
-- [ ] Confirm we keep DR for DM (no changes there) — yes.
-- [ ] Confirm we **do not** in-place migrate existing groups (§4).
-- [ ] Decide naming: `crypto_version` vs `protocol_version` on `groups`.
-- [ ] Pick the message envelope discriminator string —
-      `group_post` vs `gp_v2` vs other.
+| # | Decision | Resolution |
+|---|---|---|
+| 1 | Wire format §3.2 | Per-recipient envelope (singular `wrap`) |
+| 2a | Subscriber cap (channels MVP) | 100 |
+| 2b | File limit in channel posts | 2 MB |
+| 3 | DM crypto | Stays on Double Ratchet |
+| 4 | Existing-groups migration | Hard cutover (no `crypto_version` flag) |
+| 5 | Roster counter column name | `epoch` |
+| 6 | Envelope discriminator | `group_post` |
 
-When these are resolved, Phase 1 can start.
+**Phase 1 is unblocked.** See PLAN.md `P7-1` and onward for trackable
+sub-tasks.
