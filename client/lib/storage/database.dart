@@ -7,7 +7,7 @@ import 'package:sqflite_sqlcipher/sqflite.dart';
 /// Call [close] / [lock] when the app goes to background.
 class AppDatabase {
   static const _dbName = 'hubcore.db';
-  static const _schemaVersion = 25;
+  static const _schemaVersion = 26;
 
   Database? _db;
 
@@ -98,7 +98,8 @@ class AppDatabase {
         name        TEXT    NOT NULL,
         admin_pub   TEXT,                     -- base58 master pubkey of creator (legacy, kept for compat)
         owner_pub   TEXT,                     -- base58 original creator — cannot be demoted
-        created_at  INTEGER NOT NULL
+        created_at  INTEGER NOT NULL,
+        epoch       INTEGER NOT NULL DEFAULT 0  -- roster generation, bumped on add/kick/role
       )
     ''');
 
@@ -369,6 +370,15 @@ class AppDatabase {
     }
     if (oldVersion < 25) {
       await _createMessageReactions(db);
+    }
+    if (oldVersion < 26) {
+      // P7 group crypto refactor: add roster epoch on groups (per-post wrap
+      // scheme bumps it on add/kick/role-change). Sender Keys columns on
+      // group_members (chain_key/ratchet_pub/counter) are kept here and
+      // will be dropped in a later migration once Sender Keys code is gone.
+      await db.execute(
+        'ALTER TABLE groups ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0',
+      );
     }
   }
 

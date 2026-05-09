@@ -79,9 +79,9 @@
 - [x] P7-3 Unit tests: roundtrip, tamper-content, tamper-signature, wrong-recipient cannot decrypt — 10/10 passing
 
 ### P7-2 Schema cutover v26 + DAO (1–2 days)
-- [ ] P7-4 Schema v26: drop `group_members.{chain_key,ratchet_pub,counter}`, add `groups.epoch`
-- [ ] P7-5 `Group` + `GroupMember` entities, `GroupsDao` reflect new shape
-- [ ] P7-6 `GroupInvite` entity: replace `chainKeyBlob` with `roster: List<String>` + `epoch`
+- [x] P7-4 Schema v26: ADD `groups.epoch INTEGER NOT NULL DEFAULT 0`. Sender Keys columns on `group_members` kept until Phase 5 (after the code that reads them is gone) — keeps each phase compileable.
+- [x] P7-5 `Group` entity: `epoch` field added; `GroupsDao.epochOf` + `bumpEpoch` helpers
+- [x] P7-6 `GroupInvite`: `epoch` field added (members already serves as roster). `chainKeyBlob` kept until Phase 5.
 
 ### P7-3 Receive path (2 days)
 - [ ] P7-7 Replace `group_msg` handler with `group_post` in `ReceiveEnvelopeUseCase` (signature verify, sender-is-member check)

@@ -9,6 +9,11 @@ class Group {
   final String? ownerPub;  // original creator, cannot be demoted
   final int createdAt;     // unix seconds
 
+  /// Roster generation counter — incremented on every add / kick /
+  /// role-change. Per-post-wrap envelopes carry this to let receivers
+  /// detect stale roster views. Bumped only by admins.
+  final int epoch;
+
   const Group({
     this.id,
     required this.groupId,
@@ -16,6 +21,7 @@ class Group {
     this.adminPub,
     this.ownerPub,
     required this.createdAt,
+    this.epoch = 0,
   });
 
   factory Group.fromMap(Map<String, dynamic> m) => Group(
@@ -25,6 +31,7 @@ class Group {
         adminPub: m['admin_pub'] as String?,
         ownerPub: m['owner_pub'] as String?,
         createdAt: m['created_at'] as int,
+        epoch: (m['epoch'] as int?) ?? 0,
       );
 
   Map<String, dynamic> toMap() => {
@@ -33,6 +40,7 @@ class Group {
         if (adminPub != null) 'admin_pub': adminPub,
         if (ownerPub != null) 'owner_pub': ownerPub,
         'created_at': createdAt,
+        'epoch': epoch,
       };
 }
 

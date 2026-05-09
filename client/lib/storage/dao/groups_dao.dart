@@ -113,6 +113,29 @@ class GroupsDao {
     );
   }
 
+  /// Read the current roster epoch for a group. Returns 0 if not found.
+  Future<int> epochOf(String groupId) async {
+    final rows = await _db.query(
+      'groups',
+      columns: ['epoch'],
+      where: 'group_id = ?',
+      whereArgs: [groupId],
+      limit: 1,
+    );
+    if (rows.isEmpty) return 0;
+    return (rows.first['epoch'] as int?) ?? 0;
+  }
+
+  /// Atomically increment the roster epoch (used on add / kick / role-change).
+  /// Returns the new value.
+  Future<int> bumpEpoch(String groupId) async {
+    await _db.rawUpdate(
+      'UPDATE groups SET epoch = epoch + 1 WHERE group_id = ?',
+      [groupId],
+    );
+    return epochOf(groupId);
+  }
+
   Future<void> deleteGroup(String groupId) async {
     await _db.delete('groups', where: 'group_id = ?', whereArgs: [groupId]);
     await _db.delete('group_members', where: 'group_id = ?', whereArgs: [groupId]);
