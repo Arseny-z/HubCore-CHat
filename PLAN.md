@@ -74,9 +74,9 @@
 - [x] P7-0 Resolved 2026-05-09: per-recipient envelope, cap 100, file limit 2 MB, hard cutover, `epoch`, `group_post`. See §0 of design doc.
 
 ### P7-1 Codec + tests (3–4 days)
-- [ ] P7-1 `GroupPostEnvelope` dataclass + canonical JSON encode/decode
-- [ ] P7-2 `group_post_codec.dart` — AEAD content + per-recipient NaCl box wrap + Ed25519 signature transcript
-- [ ] P7-3 Unit tests: roundtrip, tamper-content, tamper-signature, wrong-recipient cannot decrypt
+- [x] P7-1 `GroupPostEnvelope` dataclass + canonical JSON encode/decode
+- [x] P7-2 `group_post_codec.dart` — AEAD content + per-recipient NaCl box wrap + Ed25519 signature transcript
+- [x] P7-3 Unit tests: roundtrip, tamper-content, tamper-signature, wrong-recipient cannot decrypt — 10/10 passing
 
 ### P7-2 Schema cutover v26 + DAO (1–2 days)
 - [ ] P7-4 Schema v26: drop `group_members.{chain_key,ratchet_pub,counter}`, add `groups.epoch`
