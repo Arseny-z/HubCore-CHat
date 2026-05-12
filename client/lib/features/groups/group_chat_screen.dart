@@ -431,8 +431,8 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       return;
     }
 
-    final groupSvc = ref.read(groupMessagingProvider);
-    if (groupSvc == null) {
+    final sendUC = ref.read(sendGroupPostProvider);
+    if (sendUC == null) {
       setState(() => _error = context.l10n.messagingNotReady);
       return;
     }
@@ -440,25 +440,54 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     setState(() { _sending = true; _error = null; });
     _ctrl.clear();
 
+    final identity = ref.read(identityNotifierProvider);
+    final myPub58 = identity != null
+        ? PubkeyCodec.encode(identity.masterPublicKey)
+        : '';
+    final messageId = _randomHex(8);
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = (_ttlSeconds != null && _ttlSeconds! > 0)
+        ? now + _ttlSeconds!
+        : null;
+
     try {
-      final envelopes = await groupSvc.sendGroupMessage(
-          widget.groupId, text, ttlSeconds: _ttlSeconds);
+      // Persist a placeholder locally so the UI updates immediately.
       final storage = ref.read(storageProvider);
-      for (final env in envelopes) {
+      if (storage.isOpen) {
+        await storage.messages.insert(Message(
+          conversationId: widget.groupId,
+          isGroup:        true,
+          senderPub:      myPub58,
+          body:           text,
+          contentType:    ContentType.text,
+          sentAt:         now,
+          status:         MessageStatus.sent,
+          messageId:      messageId,
+          expiresAt:      expiresAt,
+        ));
+      }
+
+      final result = await sendUC.execute(
+        groupId:     widget.groupId,
+        plaintext:   Uint8List.fromList(utf8.encode(text)),
+        messageId:   messageId,
+        ttlSeconds:  _ttlSeconds,
+      );
+
+      // Fan out via transport.
+      final transport = ref.read(compositeTransportProvider);
+      for (final env in result.envelopes) {
         final contact = storage.isOpen
             ? await storage.contacts.findByMasterPub(env.to)
             : null;
-        final transport = ref.read(compositeTransportProvider);
-        await transport.sendEnvelope(env, transportAddresses: contact?.transportAddresses);
+        await transport.sendEnvelope(env,
+            transportAddresses: contact?.transportAddresses);
       }
     } on StateError catch (e) {
-      final msg = e.toString();
-      if (msg.contains('No sender chain')) {
-        setState(() { _error = context.l10n.notGroupMember; _isMember = false; });
-      } else {
-        setState(() => _error = context.l10n.sendError);
-      }
-    } catch (_) {
+      AppLogger.w('GroupSend', 'state error: $e');
+      setState(() => _error = context.l10n.sendError);
+    } catch (e, st) {
+      AppLogger.e('GroupSend', 'send failed', error: e, stack: st);
       setState(() => _error = context.l10n.sendError);
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -486,8 +515,11 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
           : 'У вас нет прав на отправку сообщений');
       return;
     }
-    final groupSvc = ref.read(groupMessagingProvider);
-    if (groupSvc == null) { setState(() => _error = context.l10n.messagingNotReady); return; }
+    final sendUC0 = ref.read(sendGroupPostProvider);
+    if (sendUC0 == null) {
+      setState(() => _error = context.l10n.messagingNotReady);
+      return;
+    }
 
     setState(() { _sending = true; _error = null; });
     try {
@@ -550,8 +582,15 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
         encSize: encFileSize,
       );
 
-      // Encrypt offer via Sender Keys → fan-out envelopes (no X25519 needed)
-      final offerEnvelopes = await groupSvc.encryptGroupOffer(widget.groupId, offer.encode());
+      // Encrypt offer via per-post-wrap (scheme B) → per-recipient envelopes.
+      final sendUC = ref.read(sendGroupPostProvider);
+      if (sendUC == null) throw StateError('send use case not ready');
+      final offerResult = await sendUC.execute(
+        groupId:    widget.groupId,
+        plaintext:  offer.encode(),
+        messageId:  fileMid,
+      );
+      final offerEnvelopes = offerResult.envelopes;
       enc.key.fillRange(0, enc.key.length, 0);
 
       // Send offer × 3 (route warmup)

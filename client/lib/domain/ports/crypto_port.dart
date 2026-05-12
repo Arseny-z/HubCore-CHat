@@ -157,6 +157,18 @@ abstract class CryptoPort {
 
   // ── Groups & channels (Per-Post Wrap, scheme B — P7) ────────────────────
 
+  /// Build one per-post-wrap envelope per recipient. Signs the transcript
+  /// once with our long-term Ed25519 signing key; wraps a fresh content
+  /// key into a NaCl box for each recipient's X25519 pub.
+  Future<GroupPostBuild> encryptGroupPost({
+    required String groupId,
+    required int epoch,
+    required String messageId,
+    required Uint8List plaintext,
+    required List<GroupPostRecipient> recipients,
+    int? ttlSeconds,
+  });
+
   /// Verify and decrypt a per-post-wrap envelope addressed to us.
   ///
   /// Looks up the sender's Ed25519 signing key via [senderMasterPub58] in

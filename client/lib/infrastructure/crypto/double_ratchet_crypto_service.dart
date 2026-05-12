@@ -335,6 +335,28 @@ class DoubleRatchetCryptoService implements CryptoPort {
   late final GroupPostCodec _groupPostCodec = GroupPostCodec(_sodium);
 
   @override
+  Future<GroupPostBuild> encryptGroupPost({
+    required String groupId,
+    required int epoch,
+    required String messageId,
+    required Uint8List plaintext,
+    required List<GroupPostRecipient> recipients,
+    int? ttlSeconds,
+  }) async {
+    final myMasterPub58 = PubkeyCodec.encode(_identity.masterPublicKey);
+    return _groupPostCodec.encryptForRecipients(
+      groupId:     groupId,
+      epoch:       epoch,
+      messageId:   messageId,
+      plaintext:   plaintext,
+      senderPub58: myMasterPub58,
+      recipients:  recipients,
+      ttlSeconds:  ttlSeconds,
+      signFn:      _identity.sign,
+    );
+  }
+
+  @override
   Future<GroupPostDecryptResult> decryptGroupPost({
     required GroupPostEnvelope envelope,
     required String senderMasterPub58,

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/events/app_event_bus.dart';
 import '../../application/events/app_events.dart';
 import '../../application/use_cases/contacts/send_contact_hello_use_case.dart';
+import '../../application/use_cases/groups/send_group_post_use_case.dart';
 import '../../application/use_cases/messaging/process_receipt_use_case.dart';
 import '../../application/use_cases/messaging/receive_envelope_use_case.dart';
 import '../../application/use_cases/messaging/ensure_session_use_case.dart';
@@ -169,6 +170,21 @@ final receiveEnvelopeUseCaseProvider = Provider<ReceiveEnvelopeUseCase?>((ref) {
       ).catchError((e) =>
           AppLogger.w('ReceiveUC', 'public hello to $senderPub failed: $e'));
     },
+  );
+});
+
+// ── Group Use Cases (P7 per-post-wrap) ────────────────────────────────────────
+
+final sendGroupPostProvider = Provider<SendGroupPostUseCase?>((ref) {
+  final crypto   = ref.watch(cryptoServiceProvider);
+  final storage  = ref.watch(storageProvider);
+  final identity = ref.watch(identityNotifierProvider);
+  if (crypto == null || identity == null || !storage.isOpen) return null;
+  return SendGroupPostUseCase(
+    crypto:       crypto,
+    contacts:     storage.contactRepo,
+    groups:       storage.groupRepo,
+    myMasterPub:  () => PubkeyCodec.encode(identity.masterPublicKey),
   );
 });
 

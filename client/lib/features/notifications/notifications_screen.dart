@@ -66,18 +66,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Future<void> _accept(AppNotification n) async {
     final storage = ref.read(storageProvider);
-    final groupMessaging = ref.read(groupMessagingProvider);
     final messaging = ref.read(messagingServiceProvider);
     final bus = ref.read(eventBusProvider);
-    if (groupMessaging == null || messaging == null || !storage.isOpen) return;
+    if (messaging == null || !storage.isOpen) return;
 
     final invite = GroupInvite.tryDecode(
         Uint8List.fromList(utf8.encode(n.payload)));
     if (invite == null) return;
 
-    // Use AcceptGroupInviteUseCase for chain sync + event emission
+    // Per-post-wrap (P7) accept: persist roster + epoch, broadcast group_joined.
     final useCase = AcceptGroupInviteUseCase(
-      groupMessaging: groupMessaging,
+      groups: storage.groupRepo,
       messaging: messaging,
       bus: bus,
       onSendRaw: (env) {

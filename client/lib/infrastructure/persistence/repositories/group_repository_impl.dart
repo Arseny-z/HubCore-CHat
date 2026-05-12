@@ -34,4 +34,10 @@ class GroupRepositoryImpl implements GroupRepository {
 
   @override
   Future<List<String>> memberPubs(String groupId) => _dao.memberPubs(groupId);
+
+  @override
+  Future<int> epochOf(String groupId) => _dao.epochOf(groupId);
+
+  @override
+  Future<int> bumpEpoch(String groupId) => _dao.bumpEpoch(groupId);
 }

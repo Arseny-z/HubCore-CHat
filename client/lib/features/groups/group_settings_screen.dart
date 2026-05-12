@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../domain/entities/group.dart' show GroupRole;
+import '../../domain/entities/group.dart' show GroupMember, GroupRole;
+import '../../domain/entities/group_invite.dart';
 import '../../shared/providers/app_providers.dart';
 import '../../shared/utils/l10n.dart';
 import '../../shared/utils/pubkey_codec.dart';
@@ -193,25 +194,33 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
 
     setState(() => _loading = true);
     try {
-      final groupSvc = ref.read(groupMessagingProvider);
       final messaging = ref.read(messagingServiceProvider);
       final transport = ref.read(compositeTransportProvider);
 
-      if (groupSvc == null || messaging == null) return;
+      if (messaging == null) return;
 
-      // Add member as placeholder in DB with explicit write role
+      // P7 per-post-wrap: add member, bump epoch, send invite (no chain).
       await storage.groups.upsertMember(GroupMember(
-        groupId: widget.groupId,
+        groupId:   widget.groupId,
         masterPub: chosen,
-        chainKey: Uint8List(32),
-        counter: 0,
-        role: GroupRole.write,
+        chainKey:  Uint8List(0), // placeholder until Phase 5 drops the column
+        counter:   0,
+        role:      GroupRole.write,
       ));
+      final newEpoch = await storage.groups.bumpEpoch(widget.groupId);
 
-      // Build and send invite
-      final invitePayload = await groupSvc.buildInvitePayload(widget.groupId);
-      if (invitePayload != null) {
-        final env = await messaging.encryptBox(chosen, invitePayload);
+      final group   = await storage.groups.findGroup(widget.groupId);
+      final members = await storage.groups.memberPubs(widget.groupId);
+      if (group != null) {
+        final invite = GroupInvite(
+          groupId:      widget.groupId,
+          name:         group.name,
+          members:      members,
+          chainKeyBlob: Uint8List(0), // legacy field — phased out in P5
+          adminPub58:   group.adminPub ?? group.ownerPub ?? '',
+          epoch:        newEpoch,
+        );
+        final env = await messaging.encryptBox(chosen, invite.encode());
         final contact = await storage.contacts.findByMasterPub(chosen);
         await transport.sendEnvelope(env,
             transportAddresses: contact?.transportAddresses);
@@ -252,48 +261,32 @@ class _GroupSettingsScreenState extends ConsumerState<GroupSettingsScreen> {
 
     setState(() => _loading = true);
     try {
-      final storage = ref.read(storageProvider);
-      final groupSvc = ref.read(groupMessagingProvider);
+      final storage   = ref.read(storageProvider);
       final messaging = ref.read(messagingServiceProvider);
       final transport = ref.read(compositeTransportProvider);
 
-      // Remove from local DB + in-memory cache (prevents stale cache re-add bug)
-      if (groupSvc != null) {
-        await groupSvc.evictMemberChain(widget.groupId, pub);
-      } else {
-        await storage.groups.removeMember(widget.groupId, pub);
-      }
+      // P7 per-post-wrap: no chain to evict — just remove the row.
+      await storage.groups.removeMember(widget.groupId, pub);
 
-      if (groupSvc != null && messaging != null) {
-        // Rotate our chain for forward secrecy
-        final newChainPayload = await groupSvc.rotateMyChain(widget.groupId);
+      // Bump roster epoch so all future posts include the new epoch in
+      // their signature transcript — receivers detect roster change.
+      await storage.groups.bumpEpoch(widget.groupId);
 
+      if (messaging != null) {
         final kickPayload = Uint8List.fromList(utf8.encode(jsonEncode({
-          'type': 'group_kick',
+          'type':     'group_kick',
           'group_id': widget.groupId,
-          'kicked': pub,
+          'kicked':   pub,
         })));
 
-        // Notify ALL members including the kicked one (so they stop sending)
+        // Notify ALL members including the kicked one (so they stop sending).
         final allRecipients = _memberPubs.where((p) => p != _myPub()).toList();
-
         for (final memberPub in allRecipients) {
           try {
             final contact = await storage.contacts.findByMasterPub(memberPub);
             final addrs = contact?.transportAddresses;
-            // Send kick notification to everyone including kicked member
             final kickEnv = await messaging.encryptBox(memberPub, kickPayload);
             await transport.sendEnvelope(kickEnv, transportAddresses: addrs);
-            // Send new chain update to remaining members only (not the kicked one)
-            if (memberPub != pub && newChainPayload != null) {
-              final chainPayload = Uint8List.fromList(utf8.encode(jsonEncode({
-                'type': 'group_chain_update',
-                'group_id': widget.groupId,
-                'chain': base64.encode(newChainPayload),
-              })));
-              final chainEnv = await messaging.encryptBox(memberPub, chainPayload);
-              await transport.sendEnvelope(chainEnv, transportAddresses: addrs);
-            }
           } catch (_) {}
         }
       }

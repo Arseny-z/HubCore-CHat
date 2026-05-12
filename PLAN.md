@@ -88,11 +88,11 @@
 - [x] P7-8 Dedup by `(msg_id, sender)`, `MessageReceivedEvent` emit, banned-sender drop, persist with optional TTL/transport.
 
 ### P7-4 Send path + UI integration (2–3 days)
-- [ ] P7-9 `SendGroupPostUseCase` — gen content key, AEAD, build wraps, sign once, fan-out
-- [ ] P7-10 `GroupChatScreen` send paths (text / image / audio / video) call use case (single path, no version branch)
-- [ ] P7-11 `AcceptGroupInviteUseCase` rewritten — persist roster + epoch on accept (no chain)
-- [ ] P7-12 Kick path: bump `epoch`, broadcast `group_kick`, drop `rotateMyChain` call
-- [ ] P7-13 `FileService.sendFile` for groups: route `FileOffer` through `SendGroupPostUseCase`
+- [x] P7-9 `SendGroupPostUseCase` — build per-recipient envelopes (CryptoPort `encryptGroupPost` underneath); returns `(messageId, envelopes)`
+- [x] P7-10 `GroupChatScreen._send` (text) routes through the use case
+- [x] P7-11 `AcceptGroupInviteUseCase` rewritten — `GroupRepository`-only, persists roster + epoch, broadcasts `group_joined` without chain
+- [x] P7-12 Kick path: `removeMember` + `bumpEpoch` + `group_kick` broadcast; `rotateMyChain` removed. Add-member path also bumps epoch and sends new `GroupInvite` (no chain blob).
+- [x] P7-13 Group file/media `encryptGroupOffer` call site routed through `SendGroupPostUseCase` (the file-offer wrap was in `group_chat_screen`, not `file_service`).
 
 ### P7-5 Sender Keys removal (1 day)
 - [ ] P7-14 Delete `lib/crypto/sender_keys.dart` + `test/crypto/sender_keys_test.dart`

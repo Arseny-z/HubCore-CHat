@@ -14,4 +14,8 @@ abstract class GroupRepository {
   Future<GroupMember?> member(String groupId, String masterPub);
   Future<void> removeMember(String groupId, String masterPub);
   Future<List<String>> memberPubs(String groupId);
+
+  // Roster epoch (P7 per-post-wrap scheme)
+  Future<int> epochOf(String groupId);
+  Future<int> bumpEpoch(String groupId);
 }
