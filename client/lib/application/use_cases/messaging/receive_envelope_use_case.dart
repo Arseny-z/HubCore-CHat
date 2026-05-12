@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../domain/entities/contact.dart';
+import '../../../domain/entities/group_post_envelope.dart';
 import '../../../domain/entities/message.dart';
 import '../../../shared/utils/logger.dart';
 import '../../../domain/ports/crypto_port.dart';
@@ -699,7 +700,18 @@ class ReceiveEnvelopeUseCase {
       // Not a JSON system message — fall through to DM decryption.
     }
 
-    // ── Try group message ─────────────────────────────────────────────────
+    // ── Try group_post (per-post-wrap, P7 scheme B) ───────────────────────
+    final post = GroupPostEnvelope.tryDecode(envelope.body);
+    if (post != null) {
+      final plain = await _handleGroupPost(senderPub, post,
+          transport: envelope.transport);
+      if (plain != null) return plain;
+      // Fall-through if handler returned null (silently dropped) — but we
+      // still don't want to try DM/group_msg on a group_post envelope.
+      return null;
+    }
+
+    // ── Try group message (Sender Keys, legacy — removed in P7 Phase 5) ───
     if (onGroupMessage != null) {
       AppLogger.d('ReceiveUC', 'trying group_msg decode for ${envelope.body.length}b from $senderPub');
       final groupPlain = await onGroupMessage!(envelope);
@@ -716,6 +728,79 @@ class ReceiveEnvelopeUseCase {
 
     // ── Try DM (Double Ratchet) ───────────────────────────────────────────
     return await _handleDm(senderPub, envelope.body, transport: envelope.transport);
+  }
+
+  /// Verify, decrypt, dedup and persist a `group_post` envelope.
+  /// Returns plaintext on success (caller may use it for receipts), or
+  /// null on any drop reason.
+  Future<String?> _handleGroupPost(
+    String senderPub,
+    GroupPostEnvelope post, {
+    String? transport,
+  }) async {
+    // Membership / role check on the sender side.
+    final role = await onGetMemberRole?.call(post.groupId, senderPub);
+    if (role == null || role == 'banned') {
+      AppLogger.w('ReceiveUC',
+          'group_post REJECTED: $senderPub not a member of ${post.groupId} (role=$role)');
+      return null;
+    }
+
+    // Dedup by (messageId, sender) — drop replays.
+    final existing = await _messages.findByMessageId(post.messageId);
+    if (existing != null && existing.senderPub == senderPub) {
+      AppLogger.d('ReceiveUC',
+          'group_post duplicate mid=${post.messageId} from $senderPub — skip');
+      return null;
+    }
+
+    // Verify + decrypt via crypto port.
+    final result = await _crypto.decryptGroupPost(
+      envelope:         post,
+      senderMasterPub58: senderPub,
+    );
+    if (result is! GroupPostDecryptSuccess) {
+      final reason = (result as GroupPostDecryptFailure).reason.name;
+      AppLogger.w('ReceiveUC',
+          'group_post decrypt failed mid=${post.messageId} sender=$senderPub: $reason');
+      return null;
+    }
+    final plaintext = utf8.decode(result.plaintext);
+
+    // Persist.
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expiresAt = (post.ttlSeconds != null && post.ttlSeconds! > 0)
+        ? now + post.ttlSeconds!
+        : null;
+    await _messages.insert(Message(
+      conversationId: post.groupId,
+      isGroup:        true,
+      senderPub:      senderPub,
+      body:           plaintext,
+      contentType:    ContentType.text,
+      sentAt:         now,
+      receivedAt:     now,
+      status:         MessageStatus.delivered,
+      messageId:      post.messageId,
+      expiresAt:      expiresAt,
+      transport:      transport,
+    ));
+
+    _bus.emit(MessageReceivedEvent(
+      conversationId: post.groupId,
+      isGroup:        true,
+      senderPub:      senderPub,
+    ));
+
+    // Send `msg_received` receipt back to the sender so they know it
+    // landed on this device. Group reads/delivered are tracked per
+    // recipient via msg_delivered / msg_read down the line.
+    if (processReceipt != null) {
+      // For groups we don't issue a delivered receipt here — UI emits
+      // those when the message becomes visible. msg_received is fine
+      // for the basic landing signal though.
+    }
+    return plaintext;
   }
 
   // ── Box system messages ───────────────────────────────────────────────────

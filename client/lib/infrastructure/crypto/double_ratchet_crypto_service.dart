@@ -5,10 +5,12 @@ import 'package:sodium_libs/sodium_libs.dart';
 
 import '../../crypto/identity.dart';
 import '../../crypto/keys.dart';
+import '../../domain/entities/group_post_envelope.dart';
 import '../../domain/ports/crypto_port.dart';
 import '../../domain/repositories/contact_repository.dart';
 import '../../shared/utils/logger.dart';
 import '../../shared/utils/pubkey_codec.dart';
+import 'group_post_codec.dart';
 import 'session_manager.dart';
 
 export '../../domain/ports/crypto_port.dart';
@@ -326,5 +328,34 @@ class DoubleRatchetCryptoService implements CryptoPort {
   ) {
     throw UnimplementedError(
         'Group decryption is handled by GroupMessagingService until A4 phase 5.');
+  }
+
+  // ── Per-Post Wrap (P7) ─────────────────────────────────────────────────────
+
+  late final GroupPostCodec _groupPostCodec = GroupPostCodec(_sodium);
+
+  @override
+  Future<GroupPostDecryptResult> decryptGroupPost({
+    required GroupPostEnvelope envelope,
+    required String senderMasterPub58,
+  }) async {
+    // Sender must be a known contact so we can resolve their signing pub.
+    final contact = await _contacts.findByMasterPub(senderMasterPub58);
+    if (contact == null) {
+      AppLogger.w('GroupPost', 'unknown sender $senderMasterPub58 — drop');
+      return const GroupPostDecryptFailure(GroupPostDecryptError.badSignature);
+    }
+    final Uint8List senderSigningPub;
+    try {
+      senderSigningPub = PubkeyCodec.decode(contact.signingPub);
+    } catch (e) {
+      AppLogger.w('GroupPost', 'bad signing pub for $senderMasterPub58: $e');
+      return const GroupPostDecryptFailure(GroupPostDecryptError.badSignature);
+    }
+    return _groupPostCodec.decrypt(
+      envelope:         envelope,
+      senderSigningPub: senderSigningPub,
+      myX25519Priv:     _identity.x25519PrivateKey,
+    );
   }
 }

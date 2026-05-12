@@ -142,3 +142,37 @@ class GroupPostBuild {
 
   const GroupPostBuild(this.envelopes);
 }
+
+// ── Decrypt result (returned by codec / CryptoPort) ─────────────────────────
+
+/// Outcome of a group_post decryption attempt.
+sealed class GroupPostDecryptResult {
+  const GroupPostDecryptResult();
+}
+
+class GroupPostDecryptSuccess extends GroupPostDecryptResult {
+  final Uint8List plaintext;
+  const GroupPostDecryptSuccess(this.plaintext);
+}
+
+enum GroupPostDecryptError {
+  /// Ed25519 signature did not verify against the supplied sender pub
+  /// (or sender's signing key is unknown locally).
+  badSignature,
+  /// NaCl box could not be opened with our X25519 private key
+  /// (we are not a recipient, or the wrap is corrupted).
+  wrapOpenFailed,
+  /// AEAD content decryption failed (the wrapped key was wrong, or the
+  /// ciphertext / AAD was tampered with).
+  aeadFailed,
+  /// Sender of the envelope is not a current member of the referenced
+  /// group, or is banned. Receiver dropped the post.
+  senderNotMember,
+  /// Local group is unknown. Receiver dropped the post.
+  unknownGroup,
+}
+
+class GroupPostDecryptFailure extends GroupPostDecryptResult {
+  final GroupPostDecryptError reason;
+  const GroupPostDecryptFailure(this.reason);
+}

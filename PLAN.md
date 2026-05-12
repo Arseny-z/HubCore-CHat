@@ -84,8 +84,8 @@
 - [x] P7-6 `GroupInvite`: `epoch` field added (members already serves as roster). `chainKeyBlob` kept until Phase 5.
 
 ### P7-3 Receive path (2 days)
-- [ ] P7-7 Replace `group_msg` handler with `group_post` in `ReceiveEnvelopeUseCase` (signature verify, sender-is-member check)
-- [ ] P7-8 Dedup by `(msg_id, sender)`, `MessageReceivedEvent` emit, banned-sender drop
+- [x] P7-7 `group_post` handler in `ReceiveEnvelopeUseCase` (signature verify via `CryptoPort.decryptGroupPost`, sender-is-member check). Old `group_msg` path left in place until Phase 5.
+- [x] P7-8 Dedup by `(msg_id, sender)`, `MessageReceivedEvent` emit, banned-sender drop, persist with optional TTL/transport.
 
 ### P7-4 Send path + UI integration (2–3 days)
 - [ ] P7-9 `SendGroupPostUseCase` — gen content key, AEAD, build wraps, sign once, fan-out

@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import '../entities/group_post_envelope.dart';
+
 /// Result of a Double Ratchet DM encryption.
 ///
 /// Contains everything needed to build a wire envelope:
@@ -141,7 +143,7 @@ abstract class CryptoPort {
   /// Decrypt a stateless NaCl box addressed to us.
   Uint8List? decryptBox(Uint8List ciphertext);
 
-  // ── Groups (Sender Keys) ─────────────────────────────────────────────────
+  // ── Groups (Sender Keys — legacy, will be removed in P7 Phase 5) ─────────
 
   /// Encrypt [plaintext] for [groupId] using the local member's sender chain.
   Future<Uint8List> encryptGroup(String groupId, String plaintext);
@@ -152,4 +154,16 @@ abstract class CryptoPort {
     IncomingGroupMeta meta,
     Uint8List ciphertext,
   );
+
+  // ── Groups & channels (Per-Post Wrap, scheme B — P7) ────────────────────
+
+  /// Verify and decrypt a per-post-wrap envelope addressed to us.
+  ///
+  /// Looks up the sender's Ed25519 signing key via [senderMasterPub58] in
+  /// the contacts repository, then verifies the envelope signature and
+  /// AEAD-decrypts the content using our long-term X25519 private key.
+  Future<GroupPostDecryptResult> decryptGroupPost({
+    required GroupPostEnvelope envelope,
+    required String senderMasterPub58,
+  });
 }
